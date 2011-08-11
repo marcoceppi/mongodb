@@ -1,0 +1,72 @@
+#!/bin/bash
+# Here do anything needed to install the service
+# i.e. apt-get install -y foo  or  bzr branch http://myserver/mycode /srv/webroot
+
+set -ux
+
+############################################################################################################
+# Install some utility packages needed for installation
+############################################################################################################
+rm -f /etc/apt/sources.list.d/facter-plugins-ppa-oneiric.list
+echo deb http://ppa.launchpad.net/facter-plugins/ppa/ubuntu oneiric main  >> /etc/apt/sources.list.d/facter-plugins-ppa-oneiric.list
+echo deb-src http://ppa.launchpad.net/facter-plugins/ppa/ubuntu oneiric main  >> /etc/apt/sources.list.d/facter-plugins-ppa-oneiric.list
+apt-key adv --keyserver keyserver.ubuntu.com --recv-keys B696B50DD8914A9290A4923D6383E098F7D4BE4B
+
+#apt-add-repository ppa:facter-plugins/ppa
+apt-get update
+DEBIAN_FRONTEND=noninteractive apt-get -y install facter facter-customfacts-plugin
+
+############################################################################################################
+# Set some variables that we'll need for later
+############################################################################################################
+
+DEFAULT_REPLSET_NAME="myset"
+HOSTNAME=`hostname -f`
+EPOCH=`date +%s`
+fact-add replset-name ${DEFAULT_REPLSET_NAME}
+fact-add install-time ${EPOCH}
+
+
+############################################################################################################
+# Install mongodb
+############################################################################################################
+
+DEBIAN_FRONTEND=noninteractive apt-get install -y mongodb
+
+
+############################################################################################################
+# Change the default mongodb configuration to bind to relfect that we are a master
+############################################################################################################
+
+sed -e "s/#master = true/master = true/" -e "s/bind_ip/#bind_ip/" -i /etc/mongodb.conf
+
+
+############################################################################################################
+# Reconfigure the upstart script to include the replica-set option.
+# We'll need this so, when we add nodes, they can all talk to each other.
+# Replica sets can only talk to each other if they all belong to the same
+# set.  In our case, we have defaulted to "myset".
+############################################################################################################
+sed -i -e "s/ -- / -- --replSet ${DEFAULT_REPLSET_NAME} /" /etc/init/mongodb.conf
+
+
+############################################################################################################
+# stop then start ( *** not restart **** )  mongodb so we can finish the configuration
+############################################################################################################
+service mongodb stop
+# There is a bug in the upstart script that leaves a lock file orphaned.... Let's wipe that file out
+rm -f /var/lib/mongodb/mongod.lock
+service mongodb start
+
+
+############################################################################################################
+# Initialize the replicaset
+############################################################################################################
+#sleep 5
+#mongo --eval "rs.initiate()"
+
+
+############################################################################################################
+# Register the port
+############################################################################################################
+[ -x /usr/bin/open-port ] && open-port 27017/TCP
