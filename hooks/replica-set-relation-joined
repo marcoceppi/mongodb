@@ -5,6 +5,21 @@
 
 set -ux
 
+DEFAULT_REPLSET_NAME=`facter replset-name`
+
+############################################################################################################
+# Reconfigure the upstart script to include the replica-set option.
+# We'll need this so, when we add nodes, they can all talk to each other.
+# Replica sets can only talk to each other if they all belong to the same
+# set.  In our case, we have defaulted to "myset".
+############################################################################################################
+
+grep "${DEFAULT_REPLSET_NAME}" /etc/init/mongodb.conf || sed -i -e "s/ -- / -- --replSet ${DEFAULT_REPLSET_NAME} /" /etc/init/mongodb.conf
+
+service mongodb stop
+rm -f /var/lib/mongodb/mongod.lock
+service mongodb start
+
 relation-set hostname=`hostname -f` replset=`facter replset-name` install-time=`facter install-time`
 
 echo $ENSEMBLE_REMOTE_UNIT joined

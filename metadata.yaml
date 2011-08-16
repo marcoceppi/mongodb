@@ -1,6 +1,6 @@
 ensemble: formula
 name: mongodb
-revision: 6
+revision: 7
 summary: An object/document-oriented database (metapackage)
 description: |
   MongoDB is a high-performance, open source, schema-free document-
