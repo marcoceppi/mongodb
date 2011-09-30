@@ -80,7 +80,7 @@ do
    fi
 done
 
-echo $ENSEMBLE_REMOTE_UNIT modified its settings
+echo $JUJU_REMOTE_UNIT modified its settings
 echo Relation settings:
 relation-get
 echo Relation members:

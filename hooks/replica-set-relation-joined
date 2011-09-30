@@ -22,4 +22,4 @@ service mongodb start
 
 relation-set hostname=`hostname -f` replset=`facter replset-name` install-time=`facter install-time`
 
-echo $ENSEMBLE_REMOTE_UNIT joined
+echo $JUJU_REMOTE_UNIT joined
