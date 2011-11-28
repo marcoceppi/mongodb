@@ -1,0 +1,5 @@
+options:
+  replicaset:
+    default: myset
+    type: string
+    description: Name of the replica set

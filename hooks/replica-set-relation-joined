@@ -5,7 +5,7 @@
 
 set -ux
 
-DEFAULT_REPLSET_NAME=`facter replset-name`
+DEFAULT_REPLSET_NAME=`config-get replicaset`
 
 ############################################################################################################
 # Reconfigure the upstart script to include the replica-set option.
@@ -20,6 +20,6 @@ service mongodb stop
 rm -f /var/lib/mongodb/mongod.lock
 service mongodb start
 
-relation-set hostname=`hostname -f` replset=`facter replset-name` install-time=`facter install-time`
+relation-set hostname=`hostname -f` replset=${DEFAULT_REPLSET_NAME} install-time=`facter install-time`
 
 echo $JUJU_REMOTE_UNIT joined

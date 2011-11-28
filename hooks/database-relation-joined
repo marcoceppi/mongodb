@@ -5,6 +5,6 @@
 
 set -ux
 
-relation-set hostname=`hostname -f` replset=`facter replset-name`
+relation-set hostname=`hostname -f` replset=`config-get replicaset`
 
 echo $JUJU_REMOTE_UNIT joined

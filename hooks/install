@@ -7,23 +7,15 @@ set -ux
 ############################################################################################################
 # Install some utility packages needed for installation
 ############################################################################################################
-rm -f /etc/apt/sources.list.d/facter-plugins-ppa-oneiric.list
-echo deb http://ppa.launchpad.net/facter-plugins/ppa/ubuntu oneiric main  >> /etc/apt/sources.list.d/facter-plugins-ppa-oneiric.list
-echo deb-src http://ppa.launchpad.net/facter-plugins/ppa/ubuntu oneiric main  >> /etc/apt/sources.list.d/facter-plugins-ppa-oneiric.list
-apt-key adv --keyserver keyserver.ubuntu.com --recv-keys B696B50DD8914A9290A4923D6383E098F7D4BE4B
-
-#apt-add-repository ppa:facter-plugins/ppa
-apt-get update
 DEBIAN_FRONTEND=noninteractive apt-get -y install facter facter-customfacts-plugin
 
 ############################################################################################################
 # Set some variables that we'll need for later
 ############################################################################################################
 
-DEFAULT_REPLSET_NAME="myset"
+DEFAULT_REPLSET_NAME=`config-get replicaset`
 HOSTNAME=`hostname -f`
 EPOCH=`date +%s`
-fact-add replset-name ${DEFAULT_REPLSET_NAME}
 fact-add install-time ${EPOCH}
 
 
@@ -47,7 +39,7 @@ sed -e "s/#master = true/master = true/" -e "s/bind_ip/#bind_ip/" -i /etc/mongod
 # Replica sets can only talk to each other if they all belong to the same
 # set.  In our case, we have defaulted to "myset".
 ############################################################################################################
-#sed -i -e "s/ -- / -- --replSet ${DEFAULT_REPLSET_NAME} /" /etc/init/mongodb.conf
+sed -i -e "s/ -- / -- --replSet ${DEFAULT_REPLSET_NAME} /" /etc/init/mongodb.conf
 
 
 ############################################################################################################
@@ -62,8 +54,9 @@ service mongodb start
 ############################################################################################################
 # Initialize the replicaset
 ############################################################################################################
-#sleep 5
-#mongo --eval "rs.initiate()"
+sleep 5
+mongo --eval "rs.initiate()"
+sleep 5
 
 
 ############################################################################################################

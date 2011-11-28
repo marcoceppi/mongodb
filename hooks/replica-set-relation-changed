@@ -12,7 +12,7 @@ set -ux
 # Set some global variables
 ############################################################################################################
 MY_HOSTNAME=`hostname -f`
-MY_REPLSET=`facter replset-name`
+MY_REPLSET=`config-get replicaset`
 MY_INSTALL_TIME=`facter install-time`
 
 MASTER_HOSTNAME=${MY_HOSTNAME}
