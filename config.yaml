@@ -3,3 +3,7 @@ options:
     default: myset
     type: string
     description: Name of the replica set
+  web_admin_ui:
+    default: yes
+    type: string
+    description: Replica Set Admin UI ( yes / no )
