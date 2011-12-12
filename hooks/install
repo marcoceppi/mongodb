@@ -17,6 +17,7 @@ HOSTNAME=`hostname -f`
 EPOCH=`date +%s`
 fact-add install-time ${EPOCH}
 WEB_ADMIN_UI=`config-get web_admin_ui`
+REPLICASET_MASTER=`config-get replicaset_master`
 
 
 ############################################################################################################
@@ -41,11 +42,10 @@ sed -e "s/#master = true/master = true/" -e "s/bind_ip/#bind_ip/" -i /etc/mongod
 if [ "$WEB_ADMIN_UI" == "True" ]; then
 	sed -i -e "s/ -- / -- --rest /" /etc/init/mongodb.conf
 fi
-#if [ "$REPLSET_UI" == "True" ]; then
-#	sed -i -e "s/ -- / -- --rest --replSet ${DEFAULT_REPLSET_NAME} /" /etc/init/mongodb.conf
-#else
-#	sed -i -e "s/ -- / -- --replSet ${DEFAULT_REPLSET_NAME} /" /etc/init/mongodb.conf
-#fi
+
+if [ "${REPLICASET_MASTER}" != "auto" ]; then
+	sed -i -e "s/ -- / -- --replSet ${DEFAULT_REPLSET_NAME} /" /etc/init/mongodb.conf
+fi
 
 
 ############################################################################################################
@@ -58,11 +58,11 @@ service mongodb start
 
 
 ############################################################################################################
-# Initialize the replicaset
+# Are we connecting to an existing replica set?
 ############################################################################################################
-#sleep 5
-#mongo --eval "rs.initiate()"
-#sleep 5
+if [ "${REPLICASET_MASTER}" != "auto" ]; then
+	mongo --host ${REPLICASET_MASTER} --eval "rs.add(\""${HOSTNAME}"\")"
+fi
 
 
 ############################################################################################################

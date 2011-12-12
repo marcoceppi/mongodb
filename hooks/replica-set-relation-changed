@@ -14,6 +14,16 @@ set -ux
 MY_HOSTNAME=`hostname -f`
 MY_REPLSET=`config-get replicaset`
 MY_INSTALL_TIME=`facter install-time`
+MY_REPLICASET_MASTER=`config-get replicaset_master`
+
+
+############################################################################################################
+# If we are joining an existing replicaset cluster, just join and leave.
+############################################################################################################
+if [ "${MY_REPLICASET_MASTER}" != "auto" ]; then
+	mongo --host ${MY_REPLICASET_MASTER} --eval "rs.add(\""${MY_HOSTNAME}"\")"
+	exit $?
+fi
 
 MASTER_HOSTNAME=${MY_HOSTNAME}
 MASTER_REPLSET=${MY_REPLSET}
