@@ -13,7 +13,7 @@ set -ux
 ############################################################################################################
 MY_HOSTNAME=`hostname -f`
 MY_REPLSET=`config-get replicaset`
-MY_INSTALL_TIME=`facter install-time`
+MY_INSTALL_ORDER=$(echo ${JUJU_UNIT_NAME} | awk -F/ '{ print $2 }')
 MY_REPLICASET_MASTER=`config-get replicaset_master`
 
 
@@ -27,48 +27,34 @@ fi
 
 MASTER_HOSTNAME=${MY_HOSTNAME}
 MASTER_REPLSET=${MY_REPLSET}
-MASTER_INSTALL_TIME=${MY_INSTALL_TIME}
+MASTER_INSTALL_ORDER=${MY_INSTALL_ORDER}
 
 echo "My hosntmae: ${MY_HOSTNAME}"
 echo "My ReplSet: ${MY_REPLSET}"
-echo "My install time: ${MY_INSTALL_TIME}"
+echo "My install order: ${MY_INSTALL_ORDER}"
 
 ############################################################################################################
-# Here we need to find out which is the first node ( we record the install time ).
-# The one with the lowest install time is the master.
+# Here we need to find out which is the first node ( we record the install order ).
+# The one with the lowest order time is the master.
 # Initialize the master node.
 # Add the other nodes to the master's replica set.
 ############################################################################################################
-# Find the master ( lowest install time )
+# Find the master ( lowest install order )
 for MEMBER in `relation-list`
 do
    HOSTNAME=`relation-get hostname ${MEMBER}`
    REPLSET=`relation-get replset ${MEMBER}`
-   INSTALL_TIME=`relation-get install-time ${MEMBER}`
-   if [ ${INSTALL_TIME} -lt ${MASTER_INSTALL_TIME} ];then
+   INSTALL_ORDER=`relation-get install-order ${MEMBER}`
+   if [ ${INSTALL_ORDER} -lt ${MASTER_INSTALL_ORDER} ];then
       MASTER_HOSTNAME=${HOSTNAME}
       MASTER_REPLSET=${REPLSET}
-      MASTER_INSTALL_TIME=${INSTALL_TIME}
+      MASTER_INSTALL_ORDER=${INSTALL_ORDER}
    fi
 done
 
-echo "Master host: ${MASTER_HOSTNAME}"
-
-# We should now have the lowest member of this relationship.  Let's get all of the information about it.
-#for MEMBER in `relation-list`
-#do
-#   HOSTNAME=`relation-get hostname ${MEMBER}`
-#   REPLSET=`relation-get replset ${MEMBER}`
-#   INSTALL_TIME=`relation-get install-time ${MEMBER}`
-#   if [ ${INSTALL_TIME} -eq ${MASTER_INSTALL_TIME} ]; then
-#      MASTER_HOSTNAME=${HOSTNAME}
-#      MASTER_REPLSET=${REPLSET}
-#   fi
-#done
-
 echo "Master Hostname: ${MASTER_HOSTNAME}"
 echo "Master ReplSet: ${MASTER_REPLSET}"
-echo "Master install time: ${MASTER_INSTALL_TIME}"
+echo "Master install order: ${MASTER_INSTALL_ORDER}"
 
 # We should now have all the information about the master node.
 # If the node has already been initialized, it will just inform you
@@ -84,7 +70,7 @@ for MEMBER in `relation-list`
 do
    HOSTNAME=`relation-get hostname ${MEMBER}`
    REPLSET=`relation-get replset ${MEMBER}`
-   INSTALL_TIME=`relation-get install-time ${MEMBER}`
+   INSTALL_ORDER=`relation-get install-order ${MEMBER}`
    if [ "${MASTER_HOSTNAME}" != "${HOSTNAME}" ]; then
       if [ "${HOSTNAME}" == "${MY_HOSTNAME}" ]; then
          mongo --eval "rs.add(\""${HOSTNAME}"\")"

@@ -1,4 +1,8 @@
 options:
+  default_port:
+    default: 27017
+    type: string
+    description: Default MongoDB port
   replicaset:
     default: myset
     type: string
@@ -7,6 +11,10 @@ options:
     default: yes
     type: string
     description: Replica Set Admin UI ( yes / no )
+  web_amind_ui_port:
+    default: 28017
+    type: string
+    description: Default port for the MongoDB web admin interface
   replicaset_master:
     default: auto
     type: string

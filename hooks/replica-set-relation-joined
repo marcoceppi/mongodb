@@ -6,6 +6,7 @@
 set -ux
 
 DEFAULT_REPLSET_NAME=`config-get replicaset`
+INSTALL_ORDER=$(echo ${JUJU_UNIT_NAME} | awk -F/ '{ print $2 }')
 
 ############################################################################################################
 # Reconfigure the upstart script to include the replica-set option.
@@ -13,13 +14,14 @@ DEFAULT_REPLSET_NAME=`config-get replicaset`
 # Replica sets can only talk to each other if they all belong to the same
 # set.  In our case, we have defaulted to "myset".
 ############################################################################################################
+grep "${DEFAULT_REPLSET_NAME}" /etc/init/mongodb.conf
+if [ $? -ne 0 ];then
+	sed -i -e "s/ -- / -- --replSet ${DEFAULT_REPLSET_NAME} /" /etc/init/mongodb.conf
+	service mongodb stop
+	rm -f /var/lib/mongodb/mongod.lock
+	service mongodb start
+fi
 
-grep "${DEFAULT_REPLSET_NAME}" /etc/init/mongodb.conf || sed -i -e "s/ -- / -- --replSet ${DEFAULT_REPLSET_NAME} /" /etc/init/mongodb.conf
-
-service mongodb stop
-rm -f /var/lib/mongodb/mongod.lock
-service mongodb start
-
-relation-set hostname=`hostname -f` replset=${DEFAULT_REPLSET_NAME} install-time=`facter install-time`
+relation-set hostname=`hostname -f` replset=${DEFAULT_REPLSET_NAME} install-order=${INSTALL_ORDER}
 
 echo $JUJU_REMOTE_UNIT joined
