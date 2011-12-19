@@ -13,6 +13,7 @@ EPOCH=`date +%s`
 INSTALL_ORDER=$(echo ${JUJU_UNIT_NAME} | awk -F/ '{ print $2 }')
 WEB_ADMIN_UI=`config-get web_admin_ui`
 REPLICASET_MASTER=`config-get replicaset_master`
+DEFAULT_PORT=`config-get default_port`
 
 
 ############################################################################################################
@@ -22,9 +23,12 @@ DEBIAN_FRONTEND=noninteractive apt-get install -y mongodb
 
 
 ############################################################################################################
-# Change the default mongodb configuration to bind to relfect that we are a master
+# Change the default mongodb configuration
 ############################################################################################################
-sed -e "s/#master = true/master = true/" -e "s/bind_ip/#bind_ip/" -i /etc/mongodb.conf
+sed -e "s/#master = true/master = true/" \
+    -e "s/bind_ip/#bind_ip/" \
+    -e "s/#port = 27017/port = ${DEFAULT_PORT}/" \
+    -i /etc/mongodb.conf
 
 
 ############################################################################################################
