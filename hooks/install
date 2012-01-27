@@ -8,7 +8,8 @@ set -ux
 # Set some variables that we'll need for later
 ############################################################################################################
 DEFAULT_REPLSET_NAME=`config-get replicaset`
-HOSTNAME=`hostname -f`
+#HOSTNAME=`hostname -f`
+HOSTNAME=`unit-get public-address`
 EPOCH=`date +%s`
 INSTALL_ORDER=$(echo ${JUJU_UNIT_NAME} | awk -F/ '{ print $2 }')
 WEB_ADMIN_UI=`config-get web_admin_ui`

@@ -7,6 +7,7 @@ set -ux
 
 DEFAULT_REPLSET_NAME=`config-get replicaset`
 INSTALL_ORDER=$(echo ${JUJU_UNIT_NAME} | awk -F/ '{ print $2 }')
+HOSTNAME=`unit-get public-address`
 
 ############################################################################################################
 # Reconfigure the upstart script to include the replica-set option.
@@ -22,6 +23,6 @@ if [ $? -ne 0 ];then
 	service mongodb start
 fi
 
-relation-set hostname=`hostname -f` replset=${DEFAULT_REPLSET_NAME} install-order=${INSTALL_ORDER}
+relation-set hostname=${HOSTNAME} replset=${DEFAULT_REPLSET_NAME} install-order=${INSTALL_ORDER}
 
 echo $JUJU_REMOTE_UNIT joined

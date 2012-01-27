@@ -11,7 +11,7 @@ set -ux
 ############################################################################################################
 # Set some global variables
 ############################################################################################################
-MY_HOSTNAME=`hostname -f`
+MY_HOSTNAME=`unit-get public-address`
 MY_REPLSET=`config-get replicaset`
 MY_INSTALL_ORDER=$(echo ${JUJU_UNIT_NAME} | awk -F/ '{ print $2 }')
 MY_REPLICASET_MASTER=`config-get replicaset_master`
