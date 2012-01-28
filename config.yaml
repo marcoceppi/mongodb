@@ -1,7 +1,7 @@
 options:
   default_port:
     default: 27017
-    type: string
+    type: int
     description: Default MongoDB port
   replicaset:
     default: myset
