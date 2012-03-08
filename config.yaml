@@ -8,7 +8,7 @@ options:
     type: string
     description: Name of the replica set
   web_admin_ui:
-    default: yes
+    default: "yes"
     type: string
     description: Replica Set Admin UI ( yes / no )
   replicaset_master:
