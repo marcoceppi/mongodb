@@ -1,0 +1,163 @@
+Introduction
+============
+
+MongoDB is a high-performance, open source, schema-free document-oriented
+data store that's easy to deploy, manage and use.
+It's network accessible, written in C++ and offers the following features:
+
+1. Collection oriented storage - easy storage of object-style data
+1. Full index support, including on inner objects
+2. Query profiling
+3. Replication and fail-over support
+4. Efficient storage of binary data including large objects (e.g. videos)
+5. Auto-sharding for cloud-level scalability (Q209) High performance,
+   scalability, and  reasonable depth of functionality are the goals for
+   the project.  This is a metapackage that depends on all the mongodb parts.
+
+
+Installation
+============
+
+Get the charm-tools and bzr packages
+1. sudo add-apt-repository ppa:juju/pkgs
+2. sudo apt-get update
+3. sudo apt-get install charm-tools bzr
+
+
+Set up the charm
+================
+
+1. mkdir -p ~/tmp/juju/charms/oneiric
+2. cd ~/tmp/juju/charms/oneiric
+3. charm get mongodb
+
+
+Review the configurable options
+===============================
+
+The MongoDB charm allows for certain values to be configurable via the config.yaml file.
+
+A sample of the default settings of the config.yaml file at the time of writing are as follows:
+
+options:
+  replicaset:
+    default: myset
+    type: string
+    description: Name of the replica set
+  web_admin_ui:
+    default: yes
+    type: string
+    description: Replica Set Admin UI ( yes / no )
+  replicaset_master:
+    default: auto
+    type: string
+    description: Replica Set master ( optional ). Possible values are 'auto' for automatic
+                 detection based on install time or 'host:port' to connect to 'host' on
+                 'port' and register as a member.
+
+Where:
+
+1. replicaset
+   - ie: myreplicaset
+   - Each replicaset has a unique name to distinguish it’s members from other replicasets available in the network.
+   - The default value of myset should be fine for most single cluster scenarios.
+
+2. web_admin_ui
+   - MongoDB comes with a basic but very informative web user interface that provides health
+     and status information on the database node as well as the cluster.
+   - The default value of yes will start the Admin web UI on port 28017.
+
+3. replicaset_master
+   - If this node is going to be joining an existing replicaset, you can specify a member of that cluster
+     ( preferably the master node ) so we can join the existing replicaset.
+   - The value should be in the form of host[:port]
+   - ie:  hostname ( will connect to hostname on the default port of 27017 )
+   - ie:  hostname:port  ( will connect to hostname on port number <port> )
+
+
+Deployment
+==========
+
+Single Node
+-----------
+
+Deploy the first MongoDB instance
+
+1. cd ~/tmp/juju/charms
+2. juju deploy --repository . local:oneiric/mongodb
+3. juju expose mongodb
+
+Replica Sets
+------------
+
+Deploy the first MongoDB instance
+
+1. cd ~/tmp/juju/charms
+2. juju deploy --repository . local:oneiric/mongodb
+3. juju expose mongodb
+
+Your deployment should look similar to this ( juju status ):
+machines:
+ 0:
+        dns-name: ec2-50-19-46-207.compute-1.amazonaws.com
+        instance-id: i-3817fc5a
+        instance-state: running
+        state: running
+ 1:
+        dns-name: ec2-50-17-73-255.compute-1.amazonaws.com
+        instance-id: i-90c822f2
+        instance-state: running
+        state: running
+services:
+ mongodb:
+        charm: local:oneiric/mongodb-17
+        exposed: true
+        relations:
+         replica-set: mongodb
+        units:
+         mongodb/0:
+           machine: 1
+           open-ports:
+           - 27017/tcp
+           - 28017/tcp
+           public-address: ec2-50-17-73-255.compute-1.amazonaws.com
+           relations:
+             replica-set:
+               state: up
+           state: started
+
+In addition, the MongoDB web interface should also be accessible via the services’
+public-address and port 28017 ( ie: http://ec2-50-17-73-255.compute-1.amazonaws.com:28017 ).
+
+(Optional)Change the replicaset name
+------------------------------------
+
+1. juju set mongodb replicaset=<new_replicaset_name>
+
+Add one more nodes to your replicaset
+-------------------------------------
+
+1. juju add-unit mongodb
+
+
+Add multiple nodes to your replicaset
+-------------------------------------
+
+1. juju add-unit mongodb -n5
+
+
+We now have a working MongoDB replica-set.
+
+
+Troubleshooting
+===============
+
+1. If your master/slave/replicaset deployment is not updating correctly, check the log files at /var/log/mongodb/mongodb.log to see if there is an obvious reason ( port not open etc.).
+2. Ensure that TCP port 27017 is accessible from all of the nodes in the deployment.
+3. If you are trying to access your MongoDB instance from outside your deployment, ensure that the service has been exposed ( juju expose mongodb )
+4. Make sure that the mongod process is running ( ps -ef | grep mongo ).
+5. Try restarting the database ( restart mongodb )
+6. If all else fails, remove the data directory on the slave ( rm -fr /var/log/mongodb/data/* ) and restart the mongodb-slave daemon ( restart mongodb ).
+7. The MongoDB website ( http://www.mongodb.org ) has a very good documentation section ( http://www.mongodb.org/display/DOCS/Home )
+
+
