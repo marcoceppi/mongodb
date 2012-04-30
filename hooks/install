@@ -39,7 +39,7 @@ sed -e "s/#master = true/master = true/" \
 # set.  In our case, we have defaulted to "myset".
 ############################################################################################################
 # Web Admin UI
-if [ "$WEB_ADMIN_UI" == "True" ]; then
+if [ "$WEB_ADMIN_UI" == "yes" ]; then
 	sed -i -e "s/ -- / -- --rest /" /etc/init/mongodb.conf
 fi
 
@@ -75,7 +75,7 @@ fi
 ############################################################################################################
 # Register the port
 ############################################################################################################
-[ -x /usr/bin/open-port ] && open-port 27017/TCP
-if [ "$WEB_ADMIN_UI" == "True" ]; then
-	[ -x /usr/bin/open-port ] && open-port 28017/TCP
+[ -x /usr/bin/open-port ] && open-port ${DEFAULT_PORT}/TCP
+if [ "$WEB_ADMIN_UI" == "yes" ]; then
+    [ -x /usr/bin/open-port ] && open-port $((${DEFAULT_PORT} + 1000))/TCP
 fi
