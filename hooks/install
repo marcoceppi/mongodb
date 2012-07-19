@@ -79,3 +79,5 @@ fi
 if [ "$WEB_ADMIN_UI" == "yes" ]; then
     [ -x /usr/bin/open-port ] && open-port $((${DEFAULT_PORT} + 1000))/TCP
 fi
+
+exit 0
