@@ -1,4 +1,4 @@
-name: mongodb-redone
+name: mongodb
 maintainer: Juan Negron <juan.negron@canonical.com>
 summary: An object/document-oriented database (metapackage)
 description: |
