@@ -549,6 +549,7 @@ def update_daemon_options(daemon_options=None):
         pat_replace.append(
         (' --config /etc/mongodb.conf.*',
             ' --config /etc/mongodb.conf %s; fi' % daemon_options))
+    regex_sub(pat_replace, mongodb_init_config)
     return(update_file(default_mongodb_init_config, mongodb_init_config))
 
 
