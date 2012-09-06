@@ -44,7 +44,7 @@ def service(service_name=None, service_action=None):
             ["service", service_name, service_action]) == 0
     else:
         retVal = False
-    juju_log("service %s %s returns: %s" % \
+    juju_log("service %s %s returns: %s" %
     (service_name, service_action, retVal))
     return(retVal)
 
@@ -135,7 +135,7 @@ def relation_get(scope=None, unit_name=None, relation_id=None):
 def relation_set(key_value_pairs=None, relation_id=None):
     juju_log("relation_set: kv: %s, relation_id: %s" %
     (key_value_pairs, relation_id))
-    if key_value_pairs is None or type(key_value_pairs) != type({}):
+    if key_value_pairs is None or not isinstance(key_value_pairs, dict):
         juju_log("relation_set: Invalid key_value_pais.")
         return(False)
     try:
@@ -175,7 +175,7 @@ def apt_get_install(packages=None):
     juju_log("apt_get_install: %s" % packages)
     if packages is None:
         return(False)
-    if type(packages) == type(' '):
+    if isinstance(packages, str):
         packages = [packages]
     cmd_line = ['apt-get', '-y', 'install', '-qq']
     cmd_line.extend(packages)
@@ -193,7 +193,7 @@ def open_port(port=None, protocol="TCP"):
     if port is None:
         retVal = False
     else:
-        retVal = subprocess.call(['/usr/bin/open-port', "%d/%s" % \
+        retVal = subprocess.call(['/usr/bin/open-port', "%d/%s" %
         (int(port), protocol)]) == 0
     juju_log("open_port %d/%s returns: %s" % (int(port), protocol, retVal))
     return(retVal)
@@ -208,7 +208,7 @@ def close_port(port=None, protocol="TCP"):
     if port is None:
         retVal = False
     else:
-        retVal = subprocess.call(['/usr/bin/close-port', "%d/%s" % \
+        retVal = subprocess.call(['/usr/bin/close-port', "%d/%s" %
         (int(port), protocol)]) == 0
     juju_log("close_port %d/%s returns: %s" % (int(port), protocol, retVal))
     return(retVal)
@@ -260,7 +260,7 @@ def regex_sub(pat_replace=None, data=None):
     juju_log("regex_sub")
     if not pat_replace or not data:
         raise Exception("pat_replace or data not defined")
-    if type(pat_replace) != type([]):
+    if not isinstance(pat_replace, list):
         raise Exception("pat_replace must be a list of pat, replace tuples")
     new_data = data
     for (pattern, replace) in pat_replace:
@@ -354,7 +354,7 @@ def mongodb_conf(config_data=None):
     config.append("")
 
     # log_append
-    if config_data['logappend'] == True:
+    if config_data['logappend']:
         config.append("logappend=true")
         config.append("")
 
@@ -368,32 +368,32 @@ def mongodb_conf(config_data=None):
     config.append("")
 
     # journal
-    if config_data['journal'] == True:
+    if config_data['journal']:
         config.append("journal=true")
         config.append("")
 
     # cpu
-    if config_data['cpu'] == True:
+    if config_data['cpu']:
         config.append("cpu = true")
         config.append("")
 
     # auth
-    if config_data['auth'] == True:
+    if config_data['auth']:
         config.append("auth = true")
         config.append("")
 
     # verbose
-    if config_data['verbose'] == True:
+    if config_data['verbose']:
         config.append("verbose = true")
         config.append("")
 
     # objcheck
-    if config_data['objcheck'] == True:
+    if config_data['objcheck']:
         config.append("objcheck = true")
         config.append("")
 
     # quota
-    if config_data['quota'] == True:
+    if config_data['quota']:
         config.append("quota = true")
         config.append("")
 
@@ -402,32 +402,32 @@ def mongodb_conf(config_data=None):
     config.append("")
 
     # nocursors
-    if config_data['nocursors'] == True:
+    if config_data['nocursors']:
         config.append("nocursors = true")
         config.append("")
 
     # nohints
-    if config_data['nohints'] == True:
+    if config_data['nohints']:
         config.append("nohints = true")
         config.append("")
 
     # nohttpinterface
-    if config_data['web_admin_ui'] == False:
+    if not config_data['web_admin_ui']:
         config.append("nohttpinterface = true")
         config.append("")
 
     # noscripting
-    if config_data['noscripting'] == True:
+    if config_data['noscripting']:
         config.append("noscripting = true")
         config.append("")
 
     # notablescan
-    if config_data['notablescan'] == True:
+    if config_data['notablescan']:
         config.append("notablescan = true")
         config.append("")
 
     # noprealloc
-    if config_data['noprealloc'] == True:
+    if config_data['noprealloc']:
         config.append("noprealloc = true")
         config.append("")
 
@@ -467,7 +467,7 @@ def mongodb_conf(config_data=None):
         config.append("")
 
     # autoresync
-    if config_data['autoresync'] == True:
+    if config_data['autoresync']:
         config.append("autoresync")
         config.append("")
 
@@ -526,10 +526,10 @@ def enable_replset(replicaset_name=None):
         retVal = False
     try:
         mongodb_init_config = open(default_mongodb_init_config).read()
-        if re.search(' --replSet %s ' % replicaset_name, \
+        if re.search(' --replSet %s ' % replicaset_name,
                      mongodb_init_config, re.MULTILINE) is None:
-            mongodb_init_config = regex_sub([(' -- ', \
-                            ' -- --replSet %s ' % replicaset_name)], \
+            mongodb_init_config = regex_sub([(' -- ',
+                            ' -- --replSet %s ' % replicaset_name)],
                             mongodb_init_config)
         retVal = update_file(default_mongodb_init_config, mongodb_init_config)
     except Exception, e:
@@ -558,11 +558,11 @@ def disable_replset(replicaset_name=None):
         retVal = False
     try:
         mongodb_init_config = open(default_mongodb_init_config).read()
-        if re.search(' --replSet %s ' % replicaset_name, \
+        if re.search(' --replSet %s ' % replicaset_name,
                      mongodb_init_config, re.MULTILINE) is not None:
             mongodb_init_config = regex_sub([
                 (' --replSet %s ' % replicaset_name, ' ')
-                ], \
+                ],
                             mongodb_init_config)
         retVal = update_file(default_mongodb_init_config, mongodb_init_config)
     except Exception, e:
@@ -579,14 +579,14 @@ def enable_web_admin_ui(port=None):
     try:
         mongodb_init_config = open(default_mongodb_init_config).read()
         if re.search(' --rest ', mongodb_init_config, re.MULTILINE) is None:
-            mongodb_init_config = regex_sub([(' -- ', ' -- --rest ')], \
+            mongodb_init_config = regex_sub([(' -- ', ' -- --rest ')],
                                   mongodb_init_config)
         retVal = update_file(default_mongodb_init_config, mongodb_init_config)
     except Exception, e:
         juju_log(str(e))
         retVal = False
     finally:
-        if retVal == True:
+        if retVal:
             open_port(port)
         return(retVal)
 
@@ -600,14 +600,14 @@ def disable_web_admin_ui(port=None):
         if re.search(' --rest ',
             mongodb_init_config,
             re.MULTILINE) is not None:
-            mongodb_init_config = regex_sub([(' --rest ', ' ')], \
+            mongodb_init_config = regex_sub([(' --rest ', ' ')],
                                   mongodb_init_config)
         retVal = update_file(default_mongodb_init_config, mongodb_init_config)
     except Exception, e:
         juju_log(str(e))
         retVal = False
     finally:
-        if retVal == True:
+        if retVal:
             close_port(port)
         return(retVal)
 
@@ -626,20 +626,18 @@ def enable_arbiter(master_node=None, host=None):
 def configsvr_status(wait_for=default_wait_for, max_tries=default_max_tries):
     config_data = config_get()
     current_try = 0
-    while (process_check_pidfile('/var/run/mongodb/configsvr.pid') != \
-    (None, None)) and port_check(
+    while (process_check_pidfile('/var/run/mongodb/configsvr.pid') !=
+    (None, None)) and not port_check(
         unit_get('public-address'),
-        config_data['config_server_port']) == False and \
-    current_try < max_tries:
+        config_data['config_server_port']) and current_try < max_tries:
         juju_log("configsvr_status: Waiting for Config Server to be ready ...")
         time.sleep(wait_for)
         current_try += 1
     retVal = (
         process_check_pidfile('/var/run/mongodb/configsvr.pid') != (None, None)
-        ) == \
-        port_check(unit_get('public-address'),
-            config_data['config_server_port']) == True
-    if retVal == True:
+        ) == port_check(unit_get('public-address'),
+        config_data['config_server_port']) is True
+    if retVal:
         return(process_check_pidfile('/var/run/mongodb/configsvr.pid'))
     else:
         return((None, None))
@@ -706,9 +704,9 @@ max_tries=default_max_tries):
     subprocess.call(cmd_line, shell=True)
 
     retVal = configsvr_ready(wait_for, max_tries)
-    if retVal == True:
+    if retVal:
         open_port(config_data['config_server_port'])
-        if config_data['web_admin_ui'] == True:
+        if config_data['web_admin_ui']:
             port = int(config_data['config_server_port']) + 1000
             open_port(port)
     juju_log("enable_configsvr returns: %s" % retVal)
@@ -718,20 +716,18 @@ max_tries=default_max_tries):
 def mongos_status(wait_for=default_wait_for, max_tries=default_max_tries):
     config_data = config_get()
     current_try = 0
-    while (process_check_pidfile('/var/run/mongodb/mongos.pid') != \
-    (None, None)) and port_check(
+    while (process_check_pidfile('/var/run/mongodb/mongos.pid') !=
+    (None, None)) and not port_check(
         unit_get('public-address'),
-        config_data['mongos_port']) == False and \
-    current_try < max_tries:
+        config_data['mongos_port']) and current_try < max_tries:
         juju_log("mongos_status: Waiting for Mongo shell to be ready ...")
         time.sleep(wait_for)
         current_try += 1
     retVal = \
-        (process_check_pidfile('/var/run/mongodb/mongos.pid') != \
-        (None, None)) == \
-        port_check(unit_get('public-address'),
-            config_data['mongos_port']) == True
-    if retVal == True:
+        (process_check_pidfile('/var/run/mongodb/mongos.pid') !=
+        (None, None)) == port_check(unit_get('public-address'),
+            config_data['mongos_port']) is True
+    if retVal:
         return(process_check_pidfile('/var/run/mongodb/mongos.pid'))
     else:
         return((None, None))
@@ -766,9 +762,12 @@ def enable_mongos(config_data=None, config_servers=None,
     if config_data is None or config_servers is None:
         juju_log("enable_mongos: config_data and config_servers are mandatory")
         return(False)
-    if type(config_servers) != type([]):
+    if not isinstance(config_servers, list):
         juju_log("enable_mongos: config_servers must be a list")
         return(False)
+    if len(config_servers) < 3:
+        juju_log("enable_mongos: Not enough config servers yet...")
+        return(True)
     disable_mongos()
     # Make sure logpath exist
     subprocess.call(
@@ -784,10 +783,13 @@ def enable_mongos(config_data=None, config_servers=None,
     cmd_line += " --port %d" % config_data['mongos_port']
     cmd_line += " --fork"
     if len(config_servers) > 0:
-        cmd_line += ' --configdb %s' % ','.join(config_servers)
+        if len(config_servers) >= 3:
+            cmd_line += ' --configdb %s' % ','.join(config_servers[0:3])
+#        else:
+#            cmd_line += ' --configdb %s' % config_servers[0]
     subprocess.call(cmd_line, shell=True)
     retVal = mongos_ready(wait_for, max_tries)
-    if retVal == True:
+    if retVal:
         open_port(config_data['mongos_port'])
     juju_log("enable_mongos returns: %s" % retVal)
     return(retVal)
@@ -812,17 +814,16 @@ def restart_mongod(wait_for=default_wait_for, max_tries=default_max_tries):
 
     service('mongodb', 'start')
 
-    while service('mongodb', 'status') == True and \
-    port_check(my_hostname, my_port) == False and \
+    while service('mongodb', 'status') and \
+    not port_check(my_hostname, my_port) and \
     current_try < max_tries:
         juju_log("restart_mongod: Waiting for MongoDB to be ready ...")
         time.sleep(wait_for)
         current_try += 1
 
     return(
-        service('mongodb', 'status') == \
-        port_check(my_hostname, my_port) == True
-        )
+        (service('mongodb', 'status') == port_check(my_hostname, my_port))
+         is True)
 
 
 ###############################################################################
@@ -860,7 +861,7 @@ def config_changed():
     update_file(default_mongodb_config, mongodb_config)
 
     # web_admin_ui
-    if config_data['web_admin_ui'] == True:
+    if config_data['web_admin_ui']:
         enable_web_admin_ui(new_web_admin_ui_port)
     else:
         disable_web_admin_ui(current_web_admin_ui_port)
@@ -885,16 +886,16 @@ def config_changed():
         if config_data['arbiter'] != "disabled" and\
         config_data['replicaset_master'] != "auto":
             if config_data['arbiter'] == 'enable':
-                enable_arbiter(config_data['replicaset_master'],\
+                enable_arbiter(config_data['replicaset_master'],
                 "%s:%s" % (public_address, config_data['port']))
             else:
-                enable_arbiter(config_data['replicaset_master'],\
+                enable_arbiter(config_data['replicaset_master'],
                 config_data['arbiter'])
 
     # expose necessary ports
     update_service_ports([current_mongodb_port], [config_data['port']])
 
-    if config_data['web_admin_ui'] == True:
+    if config_data['web_admin_ui']:
         current_web_admin_ui_port = int(current_mongodb_port) + 1000
         new_web_admin_ui_port = int(config_data['port']) + 1000
         close_port(current_web_admin_ui_port)
@@ -983,8 +984,8 @@ def replica_set_relation_joined():
     juju_log("my_port: %s" % my_port)
     juju_log("my_replset: %s" % my_replset)
     juju_log("my_install_order: %s" % my_install_order)
-    return(enable_replset(my_replset) == \
-    restart_mongod() == \
+    return(enable_replset(my_replset) ==
+    restart_mongod() ==
     relation_set(
         {
             'hostname': my_hostname,
@@ -1071,9 +1072,8 @@ def configsvr_relation_changed():
 
 def mongos_relation_joined():
     juju_log("mongos_relation_joined")
-    config_data = config_get()
     my_hostname = unit_get('public-address')
-    my_port = config_data['mongos_port']
+    my_port = config_get('mongos_port')
     my_install_order = os.environ['JUJU_UNIT_NAME'].split('/')[1]
     return(relation_set(
         {
@@ -1086,14 +1086,13 @@ def mongos_relation_joined():
 
 def mongos_relation_changed():
     juju_log("mongos_relation_changed")
-    config_servers = load_config_servers(default_mongos_list)
-    print "Loaded config_servers: ", config_servers
     config_data = config_get()
     for member in relation_list():
         hostname = relation_get('hostname', member)
         port = relation_get('port', member)
         rel_type = relation_get('type', member)
         if rel_type == 'configsvr':
+            config_servers = load_config_servers(default_mongos_list)
             print "Adding config server: %s:%s" % (hostname, port)
             juju_log("Adding config server: %s:%s" % (hostname, port))
             if hostname is not None and \
@@ -1104,10 +1103,10 @@ def mongos_relation_changed():
                 config_servers.append("%s:%s" % (hostname, port))
             disable_mongos(config_data['mongos_port'])
             retVal = enable_mongos(config_data, config_servers)
-            if retVal == True:
+            if retVal:
                 update_file(default_mongos_list, '\n'.join(config_servers))
         elif rel_type == 'database':
-            if mongos_ready() == True:
+            if mongos_ready():
                 mongos_host = "%s:%s" % (
                     unit_get('public-address'),
                     config_get('mongos_port'))
@@ -1162,7 +1161,7 @@ else:
     print "Unknown hook"
     retVal = False
 
-if retVal == True:
+if retVal is True:
     sys.exit(0)
 else:
     sys.exit(1)
