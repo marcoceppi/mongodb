@@ -193,7 +193,7 @@ def open_port(port=None, protocol="TCP"):
     if port is None:
         retVal = False
     else:
-        retVal = subprocess.call(['/usr/bin/open-port', "%d/%s" %
+        retVal = subprocess.call(['open-port', "%d/%s" %
         (int(port), protocol)]) == 0
     juju_log("open_port %d/%s returns: %s" % (int(port), protocol, retVal))
     return(retVal)
@@ -208,7 +208,7 @@ def close_port(port=None, protocol="TCP"):
     if port is None:
         retVal = False
     else:
-        retVal = subprocess.call(['/usr/bin/close-port', "%d/%s" %
+        retVal = subprocess.call(['close-port', "%d/%s" %
         (int(port), protocol)]) == 0
     juju_log("close_port %d/%s returns: %s" % (int(port), protocol, retVal))
     return(retVal)
@@ -493,7 +493,7 @@ def mongo_client(host=None, command=None):
     if host is None or command is None:
         return(False)
     else:
-        cmd_line = '/usr/bin/mongo'
+        cmd_line = 'mongo'
         cmd_line += ' --host %s' % host
         cmd_line += ' --eval \'%s\'' % command
         juju_log("Executing: %s" % cmd_line)
@@ -694,7 +694,7 @@ max_tries=default_max_tries):
 
     # Start the config server
     juju_log("enable_configsvr: Starting the config server")
-    cmd_line = "/usr/bin/mongod"
+    cmd_line = "mongod"
     cmd_line += " --configsvr"
     cmd_line += " --port %d" % config_data['config_server_port']
     cmd_line += " --dbpath %s" % config_data['config_server_dbpath']
@@ -777,7 +777,7 @@ def enable_mongos(config_data=None, config_servers=None,
             '%s' % os.path.dirname(config_data['mongos_logpath'])
         ]
         )
-    cmd_line = "/usr/bin/mongos"
+    cmd_line = "mongos"
     cmd_line += " --logpath %s" % config_data['mongos_logpath']
     cmd_line += " --pidfilepath /var/run/mongodb/mongos.pid"
     cmd_line += " --port %d" % config_data['mongos_port']
