@@ -18,8 +18,10 @@ provides:
   database:
     interface: mongodb
   configsvr:
-    interface: mongodb
+    interface: shard
 requires:
+  mongos-cfg:
+    interface: shard
   mongos:
     interface: mongodb
 peers:
