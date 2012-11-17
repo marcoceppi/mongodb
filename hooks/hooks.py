@@ -1087,6 +1087,7 @@ def mongos_relation_joined():
 def mongos_relation_changed():
     juju_log("mongos_relation_changed")
     config_data = config_get()
+    retVal = False
     for member in relation_list():
         hostname = relation_get('hostname', member)
         port = relation_get('port', member)
@@ -1110,8 +1111,13 @@ def mongos_relation_changed():
                 mongos_host = "%s:%s" % (
                     unit_get('public-address'),
                     config_get('mongos_port'))
-                shard_command = "sh.addShard(\"%s:%s\")" % (hostname, port)
-                retVal = mongo_client(mongos_host, shard_command)
+                shard_command1 = "sh.addShard(\"%s:%s\")" % (hostname, port)
+                retVal1 = mongo_client(mongos_host, shard_command1)
+                replicaset = relation_get('replset', member)
+                shard_command2 = "sh.addShard(\"%s/%s:%s\")" % \
+                (replicaset, hostname, port)
+                retVal2 = mongo_client(mongos_host, shard_command2)
+                retVal = retVal1 is True and retVal2 is True
         else:
             juju_log("mongos_relation_change: undefined rel_type: %s" %
             rel_type)
@@ -1151,6 +1157,12 @@ elif hook_name == "configsvr-relation-joined":
     retVal = configsvr_relation_joined()
 elif hook_name == "configsvr-relation-changed":
     retVal = configsvr_relation_changed()
+elif hook_name == "mongos-cfg-relation-joined":
+    retVal = mongos_relation_joined()
+elif hook_name == "mongos-cfg-relation-changed":
+    retVal = mongos_relation_changed()
+elif hook_name == "mongos-cfg-relation-broken":
+    retVal = mongos_relation_broken()
 elif hook_name == "mongos-relation-joined":
     retVal = mongos_relation_joined()
 elif hook_name == "mongos-relation-changed":
