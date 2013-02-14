@@ -838,7 +838,6 @@ def backup_cronjob(disable=False):
     bind_ip = config_data['bind_ip']
     cron_file = '/etc/cron.d/mongodb'
     cron_runtime = '@daily'
-    cron_runtime = '*/2 * * * *'
 
     # Disable or not remove it and regenerate it with new config data.
     if exists(cron_file):
