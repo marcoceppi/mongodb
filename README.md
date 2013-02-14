@@ -165,6 +165,18 @@ A sample of the default settings of the config.yaml file at the time of writing 
         default: "none"
         type: string
         description: Extra options ( exactly as you would type them in the command line ) to be added via the command line to the mongodb daemon
+      backups_enabled:
+        default: False
+        type: boolean
+        description: Enable daily backups to disk.
+      backup_directory:
+        default: "/home/ubuntu/backups"
+        type: string
+        description: Where can the backups be found.
+      backup_copies_kept:
+        default: 7
+        type: int
+        description: Number of backups to keep. Keeps one week's worth by default.
 
 ### Where:
 
@@ -314,6 +326,15 @@ To verify that your sharded cluster is running, connect to the mongo shell and r
 - mongo --host <mongos_host>:<mongos_port>
 - run sh.status()
 You should see your the hosts for your shards in the status output.
+
+## Backups
+
+Backups can be enabled via config. Note that destroying the service cannot
+currently remove the backup cron job so it will continue to run. There is a
+setting for the number of backups to keep, however, to prevent from filling
+disk space.
+
+To fetch the backups scp the files down from the path in the config.
 
 
 # Troubleshooting

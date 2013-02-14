@@ -14,6 +14,10 @@ import signal
 import socket
 import time
 
+from os import chmod
+from os import remove
+from os.path import exists
+from string import Template
 
 ###############################################################################
 # Supporting functions
@@ -826,6 +830,56 @@ def restart_mongod(wait_for=default_wait_for, max_tries=default_max_tries):
          is True)
 
 
+def backup_cronjob(disable=False):
+    """Generate the cronjob to backup with mongodbump."""
+    juju_log('Setting up cronjob')
+    config_data = config_get()
+    backupdir = config_data['backup_directory']
+    bind_ip = config_data['bind_ip']
+    cron_file = '/etc/cron.d/mongodb'
+    cron_runtime = '@daily'
+    cron_runtime = '*/2 * * * *'
+
+    # Disable or not remove it and regenerate it with new config data.
+    if exists(cron_file):
+        remove(cron_file)
+
+    if not disable:
+        tpl_data = {
+            'backup_copies': config_data['backup_copies_kept'],
+            'backup_directory': backupdir,
+            'unique_name': os.environ.get('JUJU_UNIT_NAME', bind_ip),
+            'bind_ip': bind_ip,
+            'port': config_data['port'],
+        }
+
+        script_filename = '/var/lib/mongodb/cronbackup.py'
+        script_template = 'templates/backup.py.tpl'
+
+        juju_log('Writing out cronbackup.py')
+        with open(script_template) as handle:
+            template = Template(handle.read())
+            rendered = template.substitute(tpl_data)
+
+            with open(script_filename, 'w') as output:
+                output.writelines(rendered)
+            chmod(script_filename, 0755)
+
+        juju_log('Installing cron.d/mongodb')
+
+        if exists(cron_file):
+            remove(cron_file)
+
+        with open(cron_file, 'w') as output:
+            output.write("""
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+
+%s    ubuntu python %s
+
+""" % (cron_runtime, script_filename))
+
+
 ###############################################################################
 # Hook functions
 ###############################################################################
@@ -835,6 +889,7 @@ def install_hook():
         juju_log("Installation of mongodb failed.")
         return(False)
     else:
+
         return(True)
 
 
@@ -859,6 +914,11 @@ def config_changed():
     # Update mongodb configuration file
     mongodb_config = mongodb_conf(config_data)
     update_file(default_mongodb_config, mongodb_config)
+
+    if config_data['backups_enabled']:
+        backup_cronjob()
+    else:
+        backup_cronjob(disable=True)
 
     # web_admin_ui
     if config_data['web_admin_ui']:
