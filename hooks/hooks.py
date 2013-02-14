@@ -888,7 +888,6 @@ def install_hook():
         juju_log("Installation of mongodb failed.")
         return(False)
     else:
-
         return(True)
 
 
