@@ -16,14 +16,6 @@ when = datetime.now()
 backupdir = '$backup_directory'
 tmpdir = mkdtemp()
 
-# Clean up any old backup copies.
-current_backups = listdir(backupdir)
-current_backups.sort()
-for file in current_backups[0:-$backup_copies]:
-    remove(join(backupdir, file))
-
-chdir(tmpdir)
-
 # Make sure the directory to stick tarballs exist.
 if not exists(backupdir):
     subprocess.call([
@@ -31,6 +23,14 @@ if not exists(backupdir):
         '-p',
         backupdir,
     ])
+
+# Clean up any old backup copies.
+current_backups = listdir(backupdir)
+current_backups.sort()
+for file in current_backups[0:-$backup_copies]:
+    remove(join(backupdir, file))
+
+chdir(tmpdir)
 
 # Generate a pretty unique backup filename.
 # The unique name might have slashes in it so replace them.
