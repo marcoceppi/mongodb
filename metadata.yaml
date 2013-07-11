@@ -14,6 +14,8 @@ description: |
   * Auto-sharding for cloud-level scalability (Q209)
     High performance, scalability, and reasonable depth of functionality
     are the goals for the project.
+categories:
+    - databases
 provides:
   database:
     interface: mongodb
