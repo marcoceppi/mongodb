@@ -5,19 +5,22 @@ Created on Aug 1, 2012
 @author: negronjl
 '''
 
-import os
-import sys
+import commands
 import json
-import subprocess
+import os
 import re
 import signal
 import socket
+import subprocess
+import sys
 import time
+import yaml
 
 from os import chmod
 from os import remove
 from os.path import exists
 from string import Template
+from yaml.constructor import ConstructorError
 
 ###############################################################################
 # Supporting functions
@@ -898,6 +901,34 @@ def config_changed():
     print "config_data: ", config_data
     mongodb_config = open(default_mongodb_config).read()
 
+    # Trigger volume initialization logic for permanent storage
+    volid = volume_get_volume_id()
+    if not volid:
+        ## Invalid configuration (whether ephemeral, or permanent)
+        stop_hook()
+        mounts = volume_get_all_mounted()
+        if mounts:
+            juju_log("current mounted volumes: {}".format(mounts))
+        juju_log(
+            "Disabled and stopped mongodb service, "
+            "because of broken volume configuration - check "
+            "'volume-ephemeral-storage' and 'volume-map'")
+        sys.exit(1)
+    if volume_is_permanent(volid):
+        ## config_changed_volume_apply will stop the service if it founds
+        ## it necessary, ie: new volume setup
+        if config_changed_volume_apply():
+            start_hook()
+        else:
+            stop_hook()
+            mounts = volume_get_all_mounted()
+            if mounts:
+                juju_log("current mounted volumes: {}".format(mounts))
+            juju_log(
+                "Disabled and stopped mongodb service "
+                "(config_changed_volume_apply failure)")
+            sys.exit(1)
+
     # current ports
     current_mongodb_port = re.search('^#*port\s+=\s+(\w+)',
         mongodb_config,
@@ -1007,6 +1038,7 @@ def stop_hook():
     try:
         retVal = service('mongodb', 'stop')
         os.remove('/var/lib/mongodb/mongod.lock')
+        #FIXME Need to check if this is still needed
     except Exception, e:
         juju_log(str(e))
         retVal = False
@@ -1193,6 +1225,201 @@ def mongos_relation_broken():
 #            config_servers.remove('%s:%s' % (hostname, port))
 #    return(update_file(default_mongos_list, '\n'.join(config_servers)))
     return(True)
+
+
+def run(command, exit_on_error=True):
+    '''Run a command and return the output.'''
+    try:
+        juju_log(command)
+        return subprocess.check_output(
+            command, stderr=subprocess.STDOUT, shell=True)
+    except subprocess.CalledProcessError, e:
+        juju_log("status=%d, output=%s" % (e.returncode, e.output))
+        if exit_on_error:
+            sys.exit(e.returncode)
+        else:
+            raise
+
+
+###############################################################################
+# Volume managment
+###############################################################################
+#------------------------------
+# Get volume-id from juju config "volume-map" dictionary as
+#     volume-map[JUJU_UNIT_NAME]
+# @return  volid
+#
+#------------------------------
+def volume_get_volid_from_volume_map():
+    config_data = config_get()
+    volume_map = {}
+    try:
+        volume_map = yaml.load(config_data['volume-map'].strip())
+        if volume_map:
+            return volume_map.get(os.environ['JUJU_UNIT_NAME'])
+    except ConstructorError as e:
+        juju_log("invalid YAML in 'volume-map': {}".format(e))
+    return None
+
+
+# Is this volume_id permanent ?
+# @returns  True if volid set and not --ephemeral, else:
+#           False
+def volume_is_permanent(volid):
+    if volid and volid != "--ephemeral":
+        return True
+    return False
+
+
+#------------------------------
+# Returns a mount point from passed vol-id, e.g. /srv/juju/vol-000012345
+#
+# @param  volid          volume id (as e.g. EBS volid)
+# @return mntpoint_path  eg /srv/juju/vol-000012345
+#------------------------------
+def volume_mount_point_from_volid(volid):
+    if volid and volume_is_permanent(volid):
+        return "/srv/juju/%s" % volid
+    return None
+
+
+# Do we have a valid storage state?
+# @returns  volid
+#           None    config state is invalid - we should not serve
+def volume_get_volume_id():
+    config_data = config_get()
+    ephemeral_storage = config_data['volume-ephemeral-storage']
+    volid = volume_get_volid_from_volume_map()
+    juju_unit_name = os.environ['JUJU_UNIT_NAME']
+    if ephemeral_storage in [True, 'yes', 'Yes', 'true', 'True']:
+        if volid:
+            juju_log(
+                "volume-ephemeral-storage is True, but " +
+                "volume-map[{!r}] -> {}".format(juju_unit_name, volid))
+            return None
+        else:
+            return "--ephemeral"
+    else:
+        if not volid:
+            juju_log(
+                "volume-ephemeral-storage is False, but "
+                "no volid found for volume-map[{!r}]".format(
+                    juju_unit_name))
+            return None
+    return volid
+
+
+# Initialize and/or mount permanent storage, it straightly calls
+# shell helper
+def volume_init_and_mount(volid):
+    juju_log("Initialize and mount volume")
+    command = ("scripts/volume-common.sh call " +
+               "volume_init_and_mount %s" % volid)
+    output = run(command)
+    if output.find("ERROR") >= 0:
+        juju_log("Error initializing and mounting volume")
+        return False
+    return True
+
+
+def volume_get_all_mounted():
+    command = ("mount |egrep /srv/juju")
+    status, output = commands.getstatusoutput(command)
+    if status != 0:
+        return None
+    return output
+
+#------------------------------------------------------------------------------
+# Core logic for permanent storage changes:
+# NOTE the only 2 "True" return points:
+#   1) symlink already pointing to existing storage (no-op)
+#   2) new storage properly initialized:
+#     - volume: initialized if not already (fdisk, mkfs),
+#       mounts it to e.g.:  /srv/juju/vol-000012345
+#     - if fresh new storage dir: rsync existing data
+#     - manipulate /var/lib/mongodb/VERSION/CLUSTER symlink
+#------------------------------------------------------------------------------
+def config_changed_volume_apply():
+    config_data = config_get()
+    data_directory_path = config_data["dbpath"]
+    assert(data_directory_path)
+    volid = volume_get_volume_id()
+    if volid:
+        if volume_is_permanent(volid):
+            if not volume_init_and_mount(volid):
+                juju_log(
+                    "volume_init_and_mount failed, not applying changes")
+                return False
+
+        if not os.path.exists(data_directory_path):
+            juju_log(
+                "mongodb data dir {} not found, "
+                "not applying changes.".format(data_directory_path))
+            return False
+
+        mount_point = volume_mount_point_from_volid(volid)
+        new_mongo_dir = os.path.join(mount_point, "mongodb")
+        if not mount_point:
+            juju_log(
+                "invalid mount point from volid = {}, "
+                "not applying changes.".format(mount_point))
+            return False
+
+        if os.path.islink(data_directory_path):
+            juju_log(
+                "mongodb data dir '%s' already points "
+                "to %s, skipping storage changes." % (data_directory_path, new_mongo_dir))
+            juju_log(
+                "existing-symlink: to fix/avoid UID changes from "
+                "previous units, doing: "
+                "chown -R mongodb:mongodb {}".format(new_mongo_dir))
+            run("chown -R mongodb:mongodb %s" % new_mongo_dir)
+            return True
+
+        # Create a directory structure below "new" mount_point
+        curr_dir_stat = os.stat(data_directory_path)
+        if not os.path.isdir(new_mongo_dir):
+            juju_log("mkdir %s" % new_mongo_dir)
+            os.mkdir(new_mongo_dir)
+            # copy permissions from current data_directory_path
+            os.chown(new_mongo_dir, curr_dir_stat.st_uid, curr_dir_stat.st_gid)
+            os.chmod(new_mongo_dir, curr_dir_stat.st_mode)
+        # Carefully build this symlink, e.g.:
+        # /var/lib/postgresql/9.1/main ->
+        # /srv/juju/vol-000012345/postgresql/9.1/main
+        # but keep previous "main/"  directory, by renaming it to
+        # main-$TIMESTAMP
+        if not stop_hook():
+            juju_log("stop_hook() failed - can't migrate data.")
+            return False
+        if not os.path.exists(new_mongo_dir):
+            juju_log("migrating mongo data {}/ -> {}/".format(
+                data_directory_path, new_mongo_dir))
+            # void copying PID file to perm storage (shouldn't be any...)
+            command = "rsync -a {}/ {}/".format(
+                data_directory_path, new_mongo_dir)
+            juju_log("run: {}".format(command))
+            run(command)
+        try:
+            os.rename(data_directory_path, "{}-{}".format(
+                data_directory_path, int(time.time())))
+            juju_log("NOTICE: symlinking {} -> {}".format(
+                new_mongo_dir, data_directory_path))
+            os.symlink(new_mongo_dir, data_directory_path)
+            juju_log(
+                "after-symlink: to fix/avoid UID changes from "
+                "previous units, doing: "
+                "chown -R mongodb:mongodb {}".format(new_mongo_dir))
+            run("chown -R mongodb:mongodb {}".format(new_mongo_dir))
+            return True
+        except OSError:
+            juju_log("failed to symlink {} -> {}".format(
+                data_directory_path, mount_point))
+            return False
+    else:
+        juju_log(
+            "Invalid volume storage configuration, not applying changes")
+    return False
 
 ###############################################################################
 # Main section
