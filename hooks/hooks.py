@@ -1256,7 +1256,10 @@ def volume_get_volid_from_volume_map():
     try:
         volume_map = yaml.load(config_data['volume-map'].strip())
         if volume_map:
-            return volume_map.get(os.environ['JUJU_UNIT_NAME'])
+            juju_unit_name = os.environ['JUJU_UNIT_NAME']
+            volid = volume_map.get(juju_unit_name)
+            juju_log("Juju unit name: %s Volid:%s" % (juju_unit_name, volid))
+            return volid
     except ConstructorError as e:
         juju_log("invalid YAML in 'volume-map': {}".format(e))
     return None
@@ -1306,6 +1309,7 @@ def volume_get_volume_id():
                 "no volid found for volume-map[{!r}]".format(
                     juju_unit_name))
             return None
+        juju_log("Volid:%s" % (volid))
     return volid
 
 
@@ -1315,10 +1319,7 @@ def volume_init_and_mount(volid):
     juju_log("Initialize and mount volume")
     command = ("scripts/volume-common.sh call " +
                "volume_init_and_mount %s" % volid)
-    output = run(command)
-    if output.find("ERROR") >= 0:
-        juju_log("Error initializing and mounting volume")
-        return False
+    run(command)
     return True
 
 
@@ -1385,8 +1386,8 @@ def config_changed_volume_apply():
             os.chown(new_mongo_dir, curr_dir_stat.st_uid, curr_dir_stat.st_gid)
             os.chmod(new_mongo_dir, curr_dir_stat.st_mode)
         # Carefully build this symlink, e.g.:
-        # /var/lib/postgresql/9.1/main ->
-        # /srv/juju/vol-000012345/postgresql/9.1/main
+        # /var/lib/mongodb ->
+        # /srv/juju/vol-000012345/mongodb
         # but keep previous "main/"  directory, by renaming it to
         # main-$TIMESTAMP
         if not stop_hook():
