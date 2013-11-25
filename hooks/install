@@ -1,1 +1,5 @@
-./hooks.py
+#!/bin/bash
+
+sudo apt-get install "python-yaml"
+
+hooks/hooks.py -H install

@@ -15,6 +15,7 @@ import subprocess
 import sys
 import time
 import yaml
+import argparse
 
 from os import chmod
 from os import remove
@@ -321,7 +322,13 @@ def process_check_pidfile(pidfile=None):
 ###############################################################################
 # Global variables
 ###############################################################################
-hook_name = os.path.basename(sys.argv[0])
+parser = argparse.ArgumentParser()
+parser.add_argument('-H', '--hook_name', dest='hook_name', help='hook to call')
+args = parser.parse_args()
+if args.hook_name is not None:
+    hook_name = args.hook_name
+else:
+    hook_name = os.path.basename(sys.argv[0])
 default_mongodb_config = "/etc/mongodb.conf"
 default_mongodb_init_config = "/etc/init/mongodb.conf"
 default_mongos_list = "/etc/mongos.list"
