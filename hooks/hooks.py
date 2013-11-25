@@ -887,7 +887,7 @@ PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 ###############################################################################
 def install_hook():
     juju_log("Installing mongodb")
-    if not apt_get_install('mongodb'):
+    if not apt_get_install(['mongodb', 'python-yaml']):
         juju_log("Installation of mongodb failed.")
         return(False)
     else:
