@@ -11,6 +11,18 @@ options:
     default: True
     type: boolean
     description: Append log entries to existing log file
+  logrotate-frequency:
+    default: daily
+    type: string
+    description: How often should the logs be rotated.  Use values from logrotate.
+  logrotate-keep:
+    default: 5
+    type: int
+    description: Number of log files to keep.
+  logrotate-maxsize:
+    default: 100M
+    type: string
+    description: Maximum log size before rotating.
   bind_ip:
     default: "all"
     type: string
@@ -154,7 +166,7 @@ options:
   backup_copies_kept:
     default: 7
     type: int
-    description: Number of backups to keep. Keeps one week's worth by default.
+    description: "Number of backups to keep. Keeps one week's worth by default."
   #------------------------------------------------------------------------
   # Volume management
   #   volume-map, volume-dev_regexp are only used 
@@ -177,7 +189,7 @@ options:
     description: >
       YAML map as e.g. "{ mongodb/0: vol-0000010, mongodb/1: vol-0000016 }".
       Service units will raise a "configure-error" condition if no volume-map
-      value is set for it - it's expected a human to set it properly to resolve it.
+      value is set for it - it expects a human to set it properly to resolve it.
   volume-dev-regexp:
     type: string
     default: "/dev/vd[b-z]"

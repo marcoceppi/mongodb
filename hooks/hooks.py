@@ -21,6 +21,7 @@ from os import chmod
 from os import remove
 from os.path import exists
 from string import Template
+from textwrap import dedent
 from yaml.constructor import ConstructorError
 
 ###############################################################################
@@ -322,13 +323,6 @@ def process_check_pidfile(pidfile=None):
 ###############################################################################
 # Global variables
 ###############################################################################
-parser = argparse.ArgumentParser()
-parser.add_argument('-H', '--hook_name', dest='hook_name', help='hook to call')
-args = parser.parse_args()
-if args.hook_name is not None:
-    hook_name = args.hook_name
-else:
-    hook_name = os.path.basename(sys.argv[0])
 default_mongodb_config = "/etc/mongodb.conf"
 default_mongodb_init_config = "/etc/init/mongodb.conf"
 default_mongos_list = "/etc/mongos.list"
@@ -973,6 +967,9 @@ def config_changed():
     # restart mongodb
     restart_mongod()
 
+    # write mongodb logrotate configuration file
+    write_logrotate_config(config_data)
+
     # attach to replSet ( if needed )
     if config_data['replicaset_master'] != "auto":
         join_replset(config_data['replicaset_master'], public_address)
@@ -1429,44 +1426,82 @@ def config_changed_volume_apply():
             "Invalid volume storage configuration, not applying changes")
     return False
 
+
+#------------------------------------------------------------------------------
+# Write mongodb-server logrotate configuration
+#------------------------------------------------------------------------------
+def write_logrotate_config(config_data,
+                           conf_file = '/etc/logrotate.d/mongodb-server'):
+
+    contents = dedent("""
+        {logpath} {{
+                {logrotate-frequency}
+                rotate {logrotate-rotate}
+                maxsize {logrotate-maxsize}
+                copytruncate
+                delaycompress
+                compress
+                noifempty
+                missingok
+        }}""")
+    contents = contents.format(**config_data)
+    try:
+        with open(conf_file, 'w') as f:
+            f.write(contents)
+    except IOError:
+        juju_log('Could not write {}.'.format(conf_file))
+        return False
+    return True
+
+
 ###############################################################################
 # Main section
 ###############################################################################
-if hook_name == "install":
-    retVal = install_hook()
-elif hook_name == "config-changed":
-    retVal = config_changed()
-elif hook_name == "start":
-    retVal = start_hook()
-elif hook_name == "stop":
-    retVal = stop_hook()
-elif hook_name == "database-relation-joined":
-    retVal = database_relation_joined()
-elif hook_name == "replica-set-relation-joined":
-    retVal = replica_set_relation_joined()
-elif hook_name == "replica-set-relation-changed":
-    retVal = replica_set_relation_changed()
-elif hook_name == "configsvr-relation-joined":
-    retVal = configsvr_relation_joined()
-elif hook_name == "configsvr-relation-changed":
-    retVal = configsvr_relation_changed()
-elif hook_name == "mongos-cfg-relation-joined":
-    retVal = mongos_relation_joined()
-elif hook_name == "mongos-cfg-relation-changed":
-    retVal = mongos_relation_changed()
-elif hook_name == "mongos-cfg-relation-broken":
-    retVal = mongos_relation_broken()
-elif hook_name == "mongos-relation-joined":
-    retVal = mongos_relation_joined()
-elif hook_name == "mongos-relation-changed":
-    retVal = mongos_relation_changed()
-elif hook_name == "mongos-relation-broken":
-    retVal = mongos_relation_broken()
-else:
-    print "Unknown hook"
-    retVal = False
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-H', '--hook_name', dest='hook_name',
+                        help='hook to call')
+    args = parser.parse_args()
+    if args.hook_name is not None:
+        hook_name = args.hook_name
+    else:
+        hook_name = os.path.basename(sys.argv[0])
 
-if retVal is True:
-    sys.exit(0)
-else:
-    sys.exit(1)
+    if hook_name == "install":
+        retVal = install_hook()
+    elif hook_name == "config-changed":
+        retVal = config_changed()
+    elif hook_name == "start":
+        retVal = start_hook()
+    elif hook_name == "stop":
+        retVal = stop_hook()
+    elif hook_name == "database-relation-joined":
+        retVal = database_relation_joined()
+    elif hook_name == "replica-set-relation-joined":
+        retVal = replica_set_relation_joined()
+    elif hook_name == "replica-set-relation-changed":
+        retVal = replica_set_relation_changed()
+    elif hook_name == "configsvr-relation-joined":
+        retVal = configsvr_relation_joined()
+    elif hook_name == "configsvr-relation-changed":
+        retVal = configsvr_relation_changed()
+    elif hook_name == "mongos-cfg-relation-joined":
+        retVal = mongos_relation_joined()
+    elif hook_name == "mongos-cfg-relation-changed":
+        retVal = mongos_relation_changed()
+    elif hook_name == "mongos-cfg-relation-broken":
+        retVal = mongos_relation_broken()
+    elif hook_name == "mongos-relation-joined":
+        retVal = mongos_relation_joined()
+    elif hook_name == "mongos-relation-changed":
+        retVal = mongos_relation_changed()
+    elif hook_name == "mongos-relation-broken":
+        retVal = mongos_relation_broken()
+    else:
+        print "Unknown hook"
+        retVal = False
+
+    if retVal is True:
+        sys.exit(0)
+    else:
+        sys.exit(1)
