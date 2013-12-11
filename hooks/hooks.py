@@ -1433,6 +1433,7 @@ def config_changed_volume_apply():
 def write_logrotate_config(config_data,
                            conf_file = '/etc/logrotate.d/mongodb-server'):
 
+    juju_log('Writing {}.'.format(conf_file))
     contents = dedent("""
         {logpath} {{
                 {logrotate-frequency}

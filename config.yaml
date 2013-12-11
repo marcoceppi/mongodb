@@ -15,7 +15,7 @@ options:
     default: daily
     type: string
     description: How often should the logs be rotated.  Use values from logrotate.
-  logrotate-keep:
+  logrotate-rotate:
     default: 5
     type: int
     description: Number of log files to keep.

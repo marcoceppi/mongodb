@@ -22,7 +22,7 @@ class TestWriteLogrotateConfigFile(unittest.TestCase):
                 mock_open.return_value = mock.MagicMock(spec=file)
                 hooks.write_logrotate_config(config_data, temp_fn)
                 os.unlink(temp_fn)
-        self.assertFalse(mock_juju_log.called)
+        mock_juju_log.assert_called_once_with('Writing {}.'.format(temp_fn))
         mock_open.assert_called_once_with(temp_fn, 'w')
         mock_file = mock_open().__enter__()
         call_args = mock_file.write.call_args[0][0]
