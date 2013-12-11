@@ -820,12 +820,15 @@ def restart_mongod(wait_for=default_wait_for, max_tries=default_max_tries):
     if os.path.exists('/var/lib/mongodb/mongod.lock'):
         os.remove('/var/lib/mongodb/mongod.lock')
 
-    service('mongodb', 'start')
+    if not service('mongodb', 'start'):
+        return False
 
-    while service('mongodb', 'status') and \
-    not port_check(my_hostname, my_port) and \
-    current_try < max_tries:
-        juju_log("restart_mongod: Waiting for MongoDB to be ready ...")
+    while (service('mongodb', 'status') and
+           not port_check(my_hostname, my_port) and
+           current_try < max_tries):
+        juju_log(
+            "restart_mongod: Waiting for MongoDB to be ready ({}/{})".format(
+            current_try, max_tries))
         time.sleep(wait_for)
         current_try += 1
 
@@ -964,11 +967,11 @@ def config_changed():
     # extra demon options
     update_daemon_options(config_data['extra_daemon_options'])
 
-    # restart mongodb
-    restart_mongod()
-
     # write mongodb logrotate configuration file
     write_logrotate_config(config_data)
+
+    # restart mongodb
+    restart_mongod()
 
     # attach to replSet ( if needed )
     if config_data['replicaset_master'] != "auto":
