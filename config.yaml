@@ -20,7 +20,7 @@ options:
     type: int
     description: Number of log files to keep.
   logrotate-maxsize:
-    default: 100M
+    default: 500M
     type: string
     description: Maximum log size before rotating.
   bind_ip:
