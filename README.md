@@ -311,9 +311,9 @@ We'll save this one as ~/mongodb-shard.yaml
     juju add-relation mongos:mongos-cfg configsvr:configsvr
 
 ### Connect each Shard to the Mongo shell (mongos)
-    juju add-realtion mongos:mongos shard1:database
-    juju add-realtion mongos:mongos shard2:database
-    juju add-realtion mongos:mongos shard3:database
+    juju add-relation mongos:mongos shard1:database
+    juju add-relation mongos:mongos shard2:database
+    juju add-relation mongos:mongos shard3:database
 
 With the above commands, we should now have a three replica-set sharded cluster running.
 Using the default configuration, here are some details of our sharded cluster:
