@@ -152,19 +152,22 @@ We'll save this one as `~/mongodb-shard.yaml`.
 
 With the above commands, we should now have a three replica-set sharded cluster running.
 Using the default configuration, here are some details of our sharded cluster:
+
 - mongos is running on port 27021
 - configsvr is running on port 27019
 - the shards are running on the default mongodb port of 27017
 - The web admin is turned on by default and accessible with your browser on port 28017 on each of the shards.
 
-To verify that your sharded cluster is running, connect to the mongo shell and run sh.status():
-- mongo --host <mongos_host>:<mongos_port>
-- run sh.status()
+To verify that your sharded cluster is running, connect to the mongo shell and run `sh.status()`:
+
+- `mongo --host <mongos_host>:<mongos_port>`
+- `run sh.status()`
 You should see your the hosts for your shards in the status output.
 
 To deploy mongodb using permanent volume on Openstack, the permanent volume should be attached to the mongodb unit just after the deployment, then the configuration should be updated like follows.
 
 ### Use a permanent Openstack volume to store mongodb data.
+
     juju set mongodb volume-dev-regexp="/dev/vdc" volume-map='{"mongodb/0": "vol-id-00000000000000"}' volume-ephemeral-storage=false
 
 ### Backups
@@ -178,18 +181,18 @@ To fetch the backups scp the files down from the path in the config.
 
 ## Known Limitations and Issues
 
-- If your master/slave/replicaset deployment is not updating correctly, check the log files at /var/log/mongodb/mongodb.log to see if there is an obvious reason ( port not open etc.).
+- If your master/slave/replicaset deployment is not updating correctly, check the log files at `/var/log/mongodb/mongodb.log` to see if there is an obvious reason ( port not open etc.).
 - Ensure that TCP port 27017 is accessible from all of the nodes in the deployment.
-- If you are trying to access your MongoDB instance from outside your deployment, ensure that the service has been exposed ( juju expose mongodb )
+- If you are trying to access your MongoDB instance from outside your deployment, ensure that the service has been exposed ( `juju expose mongodb` )
 - Make sure that the mongod process is running ( ps -ef | grep mongo ).
 - Try restarting the database ( restart mongodb )
-- If all else fails, remove the data directory on the slave ( rm -fr /var/log/mongodb/data/* ) and restart the mongodb-slave daemon ( restart mongodb ).
-- The MongoDB website ( http://www.mongodb.org ) has a very good documentation section ( http://www.mongodb.org/display/DOCS/Home )
+- If all else fails, remove the data directory on the slave ( `rm -fr /var/log/mongodb/data/*` ) and restart the mongodb-slave daemon ( `restart mongodb` ).
 
 # Contact Information
 
 ## MongoDB Contact Information
 
 - [MongoDB website](http://mongodb.org) 
+- [MongoDB documentation](http://www.mongodb.org/display/DOCS/Home)
 - [MongoDB bug tracker](https://jira.mongodb.org/secure/Dashboard.jspa)
 - [MongoDB user mailing list](https://groups.google.com/forum/#!forum/mongodb-user)
