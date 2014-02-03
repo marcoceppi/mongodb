@@ -2,6 +2,7 @@
 
 import amulet
 import requests
+from pymongo import MongoClient
 
 #########################################################
 # Test Quick Config
@@ -78,6 +79,24 @@ def validate_running_services():
 
 
 #############################################################
+# Validate connectivity from $WORLD
+#############################################################
+def validate_world_connectivity():
+    client = MongoClient(d.sentry.unit['mongos/0'].info['public-address'])
+    #shardclient = MongoClient(d.sentry.unit['shard1/0'].info['public-address'])
+
+    db = client['test']
+    #Can we successfully insert?
+    insert_id = db.amulet.insert({'assert': True})
+    if insert_id is None:
+        amulet.raise_status(amulet.FAIL, msg="Failed to insert test data")
+    #Can we delete from a shard using the Mongos hub?
+    result = db.amulet.remove(insert_id)
+    if result['err'] is not None:
+        amulet.raise_status(amulet.FAIL, msg="Failed to remove test data")
+
+
+#############################################################
 # Validate relationships
 #############################################################
 #broken pending 1273312
@@ -85,6 +104,7 @@ def validate_relationships():
     d.sentry.unit['configsvr/0'].relation('configsvr', 'mongos:mongos-cfg')
     d.sentry.unit['shard1/0'].relation('database', 'mongos:mongos')
     d.sentry.unit['shard2/0'].relation('database', 'mongos:mongos')
+    print(d.sentry.unit['shard1/0'].relation('database', 'mongos:mongos'))
 
 
 def validate_manual_connection():
@@ -105,3 +125,4 @@ validate_status_interface()
 validate_running_services()
 #validate_relationships()
 validate_manual_connection()
+validate_world_connectivity()
