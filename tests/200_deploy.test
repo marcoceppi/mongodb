@@ -83,7 +83,6 @@ def validate_running_services():
 #############################################################
 def validate_world_connectivity():
     client = MongoClient(d.sentry.unit['mongos/0'].info['public-address'])
-    #shardclient = MongoClient(d.sentry.unit['shard1/0'].info['public-address'])
 
     db = client['test']
     #Can we successfully insert?
