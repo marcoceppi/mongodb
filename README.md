@@ -85,7 +85,7 @@ Your deployment should look similar to this ( `juju status` ):
 In addition, the MongoDB web interface should also be accessible via the services’
 public-address and port 28017 ( ie: http://ec2-50-17-73-255.compute-1.amazonaws.com:28017 ).
 
-### (Optional)Change the replicaset name
+### (Optional) Change the replicaset name
 
     juju set mongodb replicaset=<new_replicaset_name>
 
