@@ -14,7 +14,7 @@ options:
   logrotate-frequency:
     default: daily
     type: string
-    description: How often should the logs be rotated.  Use values from logrotate.
+    description: How often should the logs be rotated. Use values from logrotate.
   logrotate-rotate:
     default: 5
     type: int
@@ -114,15 +114,15 @@ options:
   web_admin_ui:
     default: True
     type: boolean
-    description: Replica Set Admin UI ( accessible via default_port + 1000 )
+    description: Replica Set Admin UI (accessible via default_port + 1000)
   replicaset_master:
     default: auto
     type: string
-    description: Replica Set master ( optional ). Possible values are 'auto' for automatic detection based on install time or 'host:port' to connect to 'host' on 'port' and register as a member.
+    description: Replica Set master (optional). Possible values are 'auto' for automatic detection based on install time or 'host:port' to connect to 'host' on 'port' and register as a member.
   master:
     default: "self"
     type: string
-    description: Who is the master DB.  If not "self", put the Master DB here as "host:port"
+    description: Who is the master DB. If not "self", put the Master DB here as "host:port"
   config_server_port:
     default: 27019
     type: int
