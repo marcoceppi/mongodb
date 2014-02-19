@@ -46,7 +46,7 @@ assert_is_listening() {
 
 assert_is_listening 27017
 
-juju set mongodb default_port=55555
+juju set mongodb port=55555
 
 assert_is_listening 55555
 echo PASS: config changes tests passed.
