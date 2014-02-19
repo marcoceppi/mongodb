@@ -8,4 +8,4 @@ fi
 
 sudo apt-get update
 
-sudo apt-get install amulet python3 python3-requests python3-pymongo juju-core charm-tools  -y
+sudo apt-get install amulet python3 python3-requests python3-pymongo juju-core charm-tools python-mock -y
