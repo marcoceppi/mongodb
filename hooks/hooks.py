@@ -1111,9 +1111,14 @@ def replica_set_relation_changed():
 
     # Check the nodes in the relation to find the master
     for member in relation_list():
+        juju_log("replica_set_relation_changed: member: %s" % member)
         hostname = relation_get('hostname', member)
         port = relation_get('port', member)
         install_order = relation_get('install-order', member)
+        juju_log("replica_set_relation_changed: install_order: %s" % install_order)
+        if install_order is None:
+            juju_log("replica_set_relation_changed: install_order is None.  relation is not ready")
+            break
         if int(install_order) < int(master_install_order):
             master_hostname = hostname
             master_port = port
