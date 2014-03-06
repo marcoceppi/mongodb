@@ -24,6 +24,16 @@ from string import Template
 from textwrap import dedent
 from yaml.constructor import ConstructorError
 
+
+###############################################################################
+# Global variables
+###############################################################################
+default_mongodb_config = "/etc/mongodb.conf"
+default_mongodb_init_config = "/etc/init/mongodb.conf"
+default_mongos_list = "/etc/mongos.list"
+default_wait_for = 20
+default_max_tries = 20
+
 ###############################################################################
 # Supporting functions
 ###############################################################################
@@ -110,9 +120,11 @@ def config_get(scope=None):
 #                              to the specified unit
 #                relation_id:  specify relation id for out of context usage.
 #------------------------------------------------------------------------------
-def relation_get(scope=None, unit_name=None, relation_id=None):
+def relation_get(scope=None, unit_name=None, relation_id=None,
+        wait_for=default_wait_for, max_tries=default_max_tries):
     juju_log("relation_get: scope: %s, unit_name: %s, relation_id: %s" %
     (scope, unit_name, relation_id))
+    current_try = 0
     try:
         relation_cmd_line = ['relation-get', '--format=json']
         if relation_id is not None:
@@ -124,6 +136,12 @@ def relation_get(scope=None, unit_name=None, relation_id=None):
         if unit_name is not None:
             relation_cmd_line.append(unit_name)
         relation_data = json.loads(subprocess.check_output(relation_cmd_line))
+
+#        while relation_data is None and current_try < max_tries:
+#            time.sleep(wait_for)
+#            relation_data = json.loads(subprocess.check_output(relation_cmd_line))
+#            current_try += 1
+
     except Exception, e:
         juju_log(str(e))
         relation_data = None
@@ -162,13 +180,21 @@ def relation_set(key_value_pairs=None, relation_id=None):
         return(retVal)
 
 
-def relation_list(relation_id=None):
+def relation_list(relation_id=None, wait_for=default_wait_for,
+        max_tries=default_max_tries):
     juju_log("relation_list: relation_id: %s" % relation_id)
+    current_try = 0
     try:
         relation_cmd_line = ['relation-list', '--format=json']
         if relation_id is not None:
             relation_cmd_line.append('-r %s' % relation_id)
         relation_data = json.loads(subprocess.check_output(relation_cmd_line))
+
+#        while relation_data is None and current_try < max_tries:
+#            time.sleep(wait_for)
+#            relation_data = json.loads(subprocess.check_output(relation_cmd_line))
+#            current_try += 1
+
     except Exception, e:
         juju_log(str(e))
         relation_data = None
@@ -320,14 +346,6 @@ def process_check_pidfile(pidfile=None):
         return((None, None))
 
 
-###############################################################################
-# Global variables
-###############################################################################
-default_mongodb_config = "/etc/mongodb.conf"
-default_mongodb_init_config = "/etc/init/mongodb.conf"
-default_mongos_list = "/etc/mongos.list"
-default_wait_for = 20
-default_max_tries = 20
 
 
 ###############################################################################
@@ -795,6 +813,7 @@ def enable_mongos(config_data=None, config_servers=None,
             cmd_line += ' --configdb %s' % ','.join(config_servers[0:3])
 #        else:
 #            cmd_line += ' --configdb %s' % config_servers[0]
+    juju_log("enable_mongos: cmd_line: %s" % cmd_line)
     subprocess.call(cmd_line, shell=True)
     retVal = mongos_ready(wait_for, max_tries)
     if retVal:
@@ -1194,6 +1213,9 @@ def mongos_relation_changed():
         hostname = relation_get('hostname', member)
         port = relation_get('port', member)
         rel_type = relation_get('type', member)
+        if hostname is None or port is None or rel_type is None:
+            juju_log("mongos_relation_changed: relation data not ready.")
+            break
         if rel_type == 'configsvr':
             config_servers = load_config_servers(default_mongos_list)
             print "Adding config server: %s:%s" % (hostname, port)
