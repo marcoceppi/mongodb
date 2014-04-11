@@ -14,5 +14,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-unittest: 
+unittest:
 	tests/10-unit.test
+
+sync:
+	@charm-helper-sync -c charm-helpers-sync.yaml
