@@ -24,6 +24,15 @@ from string import Template
 from textwrap import dedent
 from yaml.constructor import ConstructorError
 
+from charmhelpers.fetch import (
+    add_source,
+    apt_update,
+    apt_install
+)
+from charmhelpers.core.hookenv import (
+    config
+)
+
 
 ###############################################################################
 # Global variables
@@ -201,22 +210,6 @@ def relation_list(relation_id=None, wait_for=default_wait_for,
     finally:
         juju_log("relation_id %s returns: %s" % (relation_id, relation_data))
         return(relation_data)
-
-
-#------------------------------------------------------------------------------
-# apt_get_install( package ):  Installs a package
-#------------------------------------------------------------------------------
-def apt_get_install(packages=None):
-    juju_log("apt_get_install: %s" % packages)
-    if packages is None:
-        return(False)
-    if isinstance(packages, str):
-        packages = [packages]
-    cmd_line = ['apt-get', '-y', 'install', '-qq']
-    cmd_line.extend(packages)
-    retVal = subprocess.call(cmd_line) == 0
-    juju_log("apt_get_install %s returns: %s" % (packages, retVal))
-    return(retVal)
 
 
 #------------------------------------------------------------------------------
@@ -910,11 +903,10 @@ PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 ###############################################################################
 def install_hook():
     juju_log("Installing mongodb")
-    if not apt_get_install(['mongodb', 'python-yaml']):
-        juju_log("Installation of mongodb failed.")
-        return(False)
-    else:
-        return(True)
+    add_source(config('source'), config('key'))
+    apt_update(fatal=True)
+    apt_install(packages=['mongodb', 'python-yaml'], fatal=True)
+    return True
 
 
 def config_changed():

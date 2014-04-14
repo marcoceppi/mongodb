@@ -1,8 +1,10 @@
-import hooks
 import mock
 import os
 import unittest
 import tempfile
+import sys
+sys.path.append('hooks')
+import hooks
 
 
 class TestWriteLogrotateConfigFile(unittest.TestCase):
