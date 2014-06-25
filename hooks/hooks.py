@@ -24,12 +24,12 @@ from string import Template
 from textwrap import dedent
 from yaml.constructor import ConstructorError
 
-from charmhelpers.fetch import (
+from lib.charmhelpers.fetch import (
     add_source,
     apt_update,
     apt_install
 )
-from charmhelpers.core.hookenv import (
+from lib.charmhelpers.core.hookenv import (
     config
 )
 
