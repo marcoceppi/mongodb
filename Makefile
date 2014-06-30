@@ -13,9 +13,17 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+PYTHON := /usr/bin/env python
 
 unittest:
 	tests/10-unit.test
 
 sync:
-	@charm-helper-sync -c charm-helpers-sync.yaml
+	@mkdir -p bin
+	@bzr cat lp:charm-helpers/tools/charm_helpers_sync/charm_helpers_sync.py > bin/charm_helpers_sync.py	
+	@$(PYTHON) bin/charm_helpers_sync.py -c charm-helpers-sync.yaml
+
+clean:
+	@find . -name \*.pyc -delete
+	@find . -name '*.bak' -delete
+
