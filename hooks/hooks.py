@@ -29,6 +29,7 @@ from charmhelpers.fetch import (
     apt_update,
     apt_install
 )
+
 from charmhelpers.core.hookenv import (
     config,
     unit_get,
@@ -40,6 +41,10 @@ from charmhelpers.core.hookenv import (
 )
 
 from charmhelpers.core.hookenv import log as juju_log
+
+from charmhelpers.core.host import (
+    service,
+)
 
 
 ###############################################################################
@@ -54,19 +59,6 @@ default_max_tries = 20
 ###############################################################################
 # Supporting functions
 ###############################################################################
-
-
-def service(service_name=None, service_action=None):
-    juju_log("service: %s, action: %s" % (service_name, service_action))
-    if service_name is not None and service_action is not None:
-        retVal = subprocess.call(
-            ["service", service_name, service_action]) == 0
-    else:
-        retVal = False
-    juju_log("service %s %s returns: %s" %
-    (service_name, service_action, retVal))
-    return(retVal)
-
 
 def port_check(host=None, port=None, protocol='TCP'):
     if host is None or port is None:
@@ -654,14 +646,14 @@ def restart_mongod(wait_for=default_wait_for, max_tries=default_max_tries):
     my_port = config('port')
     current_try = 0
 
-    service('mongodb', 'stop')
+    service('stop', 'mongodb')
     if os.path.exists('/var/lib/mongodb/mongod.lock'):
         os.remove('/var/lib/mongodb/mongod.lock')
 
-    if not service('mongodb', 'start'):
+    if not service('start', 'mongodb'):
         return False
 
-    while (service('mongodb', 'status') and
+    while (service('status', 'mongodb') and
            not port_check(my_hostname, my_port) and
            current_try < max_tries):
         juju_log(
@@ -671,7 +663,7 @@ def restart_mongod(wait_for=default_wait_for, max_tries=default_max_tries):
         current_try += 1
 
     return(
-        (service('mongodb', 'status') == port_check(my_hostname, my_port))
+        (service('status', 'mongodb') == port_check(my_hostname, my_port))
          is True)
 
 
@@ -880,7 +872,7 @@ def start_hook():
 def stop_hook():
     juju_log("stop_hook")
     try:
-        retVal = service('mongodb', 'stop')
+        retVal = service('stop', 'mongodb')
         os.remove('/var/lib/mongodb/mongod.lock')
         #FIXME Need to check if this is still needed
     except Exception, e:
