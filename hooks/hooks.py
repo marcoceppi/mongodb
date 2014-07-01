@@ -36,6 +36,7 @@ from charmhelpers.core.hookenv import (
     relation_get,
     relation_set,
     relations_for_id,
+    relations_of_type,
     open_port,
     close_port,
 )
@@ -910,16 +911,20 @@ def replica_set_relation_joined():
     juju_log("my_port: %s" % my_port)
     juju_log("my_replset: %s" % my_replset)
     juju_log("my_install_order: %s" % my_install_order)
-    return(enable_replset(my_replset) ==
-    restart_mongod() ==
-    relation_set(
-        {
-            'hostname': my_hostname,
-            'port': my_port,
-            'replset': my_replset,
-            'install-order': my_install_order,
-            'type': 'replset',
-        }))
+    enabled = enable_replset(my_replset)
+    restarted = restart_mongod()
+
+    relation_set(None, {
+        'hostname': my_hostname,
+        'port': my_port,
+        'replset': my_replset,
+        'install-order': my_install_order,
+        'type': 'replset',
+        })
+
+    if enabled and restarted:
+        return True
+    return False
 
 
 def replica_set_relation_changed():
@@ -939,11 +944,11 @@ def replica_set_relation_changed():
     master_install_order = my_install_order
 
     # Check the nodes in the relation to find the master
-    for member in relation_for_id():
-        juju_log("replica_set_relation_changed: member: %s" % member)
-        hostname = relation_get('hostname', member)
-        port = relation_get('port', member)
-        install_order = relation_get('install-order', member)
+    for member in relations_of_type('replica-set'):
+        juju_log("replica_set_relation_changed: member: %s" % member['__unit__'])
+        hostname = relation_get('hostname', member['__unit__'])
+        port = relation_get('port', member['__unit__'])
+        install_order = relation_get('install-order', member['__unit__'])
         juju_log("replica_set_relation_changed: install_order: %s" % install_order)
         if install_order is None:
             juju_log("replica_set_relation_changed: install_order is None.  relation is not ready")
@@ -957,9 +962,9 @@ def replica_set_relation_changed():
     init_replset("%s:%s" % (master_hostname, master_port))
 
     # Add the rest of the nodes to the replset
-    for member in relation_for_id():
-        hostname = relation_get('hostname', member)
-        port = relation_get('port', member)
+    for member in relations_of_type('replica-set'):
+        hostname = relation_get('hostname', member['__unit__'])
+        port = relation_get('port', member['__unit__'])
         if master_hostname != hostname:
             if hostname == my_hostname:
                 subprocess.call(['mongo',
@@ -974,6 +979,7 @@ def replica_set_relation_changed():
         join_replset("%s:%s" % (master_hostname, master_port),
             "%s:%s" % (my_hostname, my_port))
 
+    # should this always return true?
     return(True)
 
 
