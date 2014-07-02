@@ -3,6 +3,7 @@ summary: An open-source document database, and the leading NoSQL database
 maintainers:
  - Juan Negron <juan.negron@canonical.com>
  - Marco Ceppi <marco@ceppi.net>
+ - Charles Butler <chuck@dasroot.net>
 description: |
   MongoDB is a high-performance, open source, schema-free document-
   oriented  data store that's easy to deploy, manage and use. It's

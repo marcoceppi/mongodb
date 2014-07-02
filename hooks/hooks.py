@@ -24,13 +24,27 @@ from string import Template
 from textwrap import dedent
 from yaml.constructor import ConstructorError
 
-from lib.charmhelpers.fetch import (
+from charmhelpers.fetch import (
     add_source,
     apt_update,
     apt_install
 )
-from lib.charmhelpers.core.hookenv import (
-    config
+
+from charmhelpers.core.hookenv import (
+    config,
+    unit_get,
+    relation_get,
+    relation_set,
+    relations_for_id,
+    relations_of_type,
+    open_port,
+    close_port,
+)
+
+from charmhelpers.core.hookenv import log as juju_log
+
+from charmhelpers.core.host import (
+    service,
 )
 
 
@@ -46,201 +60,6 @@ default_max_tries = 20
 ###############################################################################
 # Supporting functions
 ###############################################################################
-
-
-#------------------------------------------------------------------------------
-# juju_log:  calls juju-log and records the message defined by the message
-#            variable
-#------------------------------------------------------------------------------
-def juju_log(message=None):
-    return (subprocess.call(['juju-log', str(message)]) == 0)
-
-
-#------------------------------------------------------------------------------
-# service:  Analogous to calling service on the command line to start/stop
-#           and get status of a service/daemon.
-#           Parameters:
-#           service_name:    The name of the service to act on.
-#           service_action:  The action (start, stop, status, etc.)
-#           Returns: True if the command was successfully executed or False on
-#                    error.
-#------------------------------------------------------------------------------
-def service(service_name=None, service_action=None):
-    juju_log("service: %s, action: %s" % (service_name, service_action))
-    if service_name is not None and service_action is not None:
-        retVal = subprocess.call(
-            ["service", service_name, service_action]) == 0
-    else:
-        retVal = False
-    juju_log("service %s %s returns: %s" %
-    (service_name, service_action, retVal))
-    return(retVal)
-
-
-#------------------------------------------------------------------------------
-# unit_get:  Convenience function wrapping the juju command unit-get
-#            Parameter:
-#            setting_name:  The setting to get out of unit_get
-#            Returns:  The requested information or None on error
-#------------------------------------------------------------------------------
-def unit_get(setting_name=None):
-    juju_log("unit_get: %s" % setting_name)
-    try:
-        cmd_line = ['unit-get', '--format=json']
-        if setting_name is not None:
-            cmd_line.append(setting_name)
-        unit_data = json.loads(subprocess.check_output(cmd_line))
-    except Exception, e:
-        subprocess.call(['juju-log', str(e)])
-        unit_data = None
-    finally:
-        juju_log("unit_get %s returns: %s" % (setting_name, unit_data))
-        return(unit_data)
-
-
-#------------------------------------------------------------------------------
-# config_get:  Returns a dictionary containing all of the config information
-#              Optional parameter: scope
-#              scope: limits the scope of the returned configuration to the
-#                     desired config item.
-#------------------------------------------------------------------------------
-def config_get(scope=None):
-    juju_log("config_get: %s" % scope)
-    try:
-        config_cmd_line = ['config-get']
-        if scope is not None:
-            config_cmd_line.append(scope)
-        config_cmd_line.append('--format=json')
-        config_data = json.loads(subprocess.check_output(config_cmd_line))
-    except Exception, e:
-        juju_log(str(e))
-        config_data = None
-    finally:
-        juju_log("config_get: %s returns: %s" % (scope, config_data))
-        return(config_data)
-
-
-#------------------------------------------------------------------------------
-# relation_get:  Returns a dictionary containing the relation information
-#                Optional parameters: scope, relation_id
-#                scope:        limits the scope of the returned data to the
-#                              desired item.
-#                unit_name:    limits the data ( and optionally the scope )
-#                              to the specified unit
-#                relation_id:  specify relation id for out of context usage.
-#------------------------------------------------------------------------------
-def relation_get(scope=None, unit_name=None, relation_id=None,
-        wait_for=default_wait_for, max_tries=default_max_tries):
-    juju_log("relation_get: scope: %s, unit_name: %s, relation_id: %s" %
-    (scope, unit_name, relation_id))
-    current_try = 0
-    try:
-        relation_cmd_line = ['relation-get', '--format=json']
-        if relation_id is not None:
-            relation_cmd_line.extend(('-r', relation_id))
-        if scope is not None:
-            relation_cmd_line.append(scope)
-        else:
-            relation_cmd_line.append('')
-        if unit_name is not None:
-            relation_cmd_line.append(unit_name)
-        relation_data = json.loads(subprocess.check_output(relation_cmd_line))
-
-#        while relation_data is None and current_try < max_tries:
-#            time.sleep(wait_for)
-#            relation_data = json.loads(subprocess.check_output(relation_cmd_line))
-#            current_try += 1
-
-    except Exception, e:
-        juju_log(str(e))
-        relation_data = None
-    finally:
-        juju_log("relation_get returns: %s" % relation_data)
-        return(relation_data)
-
-
-#------------------------------------------------------------------------------
-# relation_set:  Convenience function wrapping the juju command relation-set
-#                Parameters:
-#                key_value_pairs: A dictionary containing the key/value pairs
-#                                 to be set.
-#                Optional Parameter:
-#                relation_id:  The relation id to use
-#                Returns: True on success or False on failure
-#------------------------------------------------------------------------------
-def relation_set(key_value_pairs=None, relation_id=None):
-    juju_log("relation_set: kv: %s, relation_id: %s" %
-    (key_value_pairs, relation_id))
-    if key_value_pairs is None or not isinstance(key_value_pairs, dict):
-        juju_log("relation_set: Invalid key_value_pais.")
-        return(False)
-    try:
-        relation_cmd_line = ['relation-set', '--format=json']
-        if relation_id is not None:
-            relation_cmd_line.append('-r %s' % relation_id)
-        for (key, value) in key_value_pairs.items():
-            relation_cmd_line.append('%s=%s' % (key, value))
-        retVal = (subprocess.call(relation_cmd_line) == 0)
-    except Exception, e:
-        juju_log(str(e))
-        retVal = False
-    finally:
-        juju_log("relation_set returns: %s" % retVal)
-        return(retVal)
-
-
-def relation_list(relation_id=None, wait_for=default_wait_for,
-        max_tries=default_max_tries):
-    juju_log("relation_list: relation_id: %s" % relation_id)
-    current_try = 0
-    try:
-        relation_cmd_line = ['relation-list', '--format=json']
-        if relation_id is not None:
-            relation_cmd_line.append('-r %s' % relation_id)
-        relation_data = json.loads(subprocess.check_output(relation_cmd_line))
-
-#        while relation_data is None and current_try < max_tries:
-#            time.sleep(wait_for)
-#            relation_data = json.loads(subprocess.check_output(relation_cmd_line))
-#            current_try += 1
-
-    except Exception, e:
-        juju_log(str(e))
-        relation_data = None
-    finally:
-        juju_log("relation_id %s returns: %s" % (relation_id, relation_data))
-        return(relation_data)
-
-
-#------------------------------------------------------------------------------
-# open_port:  Convenience function to open a port in juju to
-#             expose a service
-#------------------------------------------------------------------------------
-def open_port(port=None, protocol="TCP"):
-    juju_log("open_port: port: %d protocol: %s" % (int(port), protocol))
-    if port is None:
-        retVal = False
-    else:
-        retVal = subprocess.call(['open-port', "%d/%s" %
-        (int(port), protocol)]) == 0
-    juju_log("open_port %d/%s returns: %s" % (int(port), protocol, retVal))
-    return(retVal)
-
-
-#------------------------------------------------------------------------------
-# close_port:  Convenience function to close a port in juju to
-#              unexpose a service
-#------------------------------------------------------------------------------
-def close_port(port=None, protocol="TCP"):
-    juju_log("close_port: port: %d protocol: %s" % (int(port), protocol))
-    if port is None:
-        retVal = False
-    else:
-        retVal = subprocess.call(['close-port', "%d/%s" %
-        (int(port), protocol)]) == 0
-    juju_log("close_port %d/%s returns: %s" % (int(port), protocol, retVal))
-    return(retVal)
-
 
 def port_check(host=None, port=None, protocol='TCP'):
     if host is None or port is None:
@@ -643,7 +462,7 @@ def enable_arbiter(master_node=None, host=None):
 
 
 def configsvr_status(wait_for=default_wait_for, max_tries=default_max_tries):
-    config_data = config_get()
+    config_data = config()
     current_try = 0
     while (process_check_pidfile('/var/run/mongodb/configsvr.pid') !=
     (None, None)) and not port_check(
@@ -671,7 +490,7 @@ def disable_configsvr(port=None):
         juju_log("disable_configsvr: port not defined.")
         return(False)
     try:
-        config_server_port = config_get('config_server_port')
+        config_server_port = config('config_server_port')
         pid = open('/var/run/mongodb/configsvr.pid').read()
         os.kill(int(pid), signal.SIGTERM)
         os.unlink('/var/run/mongodb/configsvr.pid')
@@ -733,7 +552,7 @@ max_tries=default_max_tries):
 
 
 def mongos_status(wait_for=default_wait_for, max_tries=default_max_tries):
-    config_data = config_get()
+    config_data = config()
     current_try = 0
     while (process_check_pidfile('/var/run/mongodb/mongos.pid') !=
     (None, None)) and not port_check(
@@ -825,17 +644,17 @@ def load_config_servers(mongos_list=None):
 
 def restart_mongod(wait_for=default_wait_for, max_tries=default_max_tries):
     my_hostname = unit_get('public-address')
-    my_port = config_get('port')
+    my_port = config('port')
     current_try = 0
 
-    service('mongodb', 'stop')
+    service('stop', 'mongodb')
     if os.path.exists('/var/lib/mongodb/mongod.lock'):
         os.remove('/var/lib/mongodb/mongod.lock')
 
-    if not service('mongodb', 'start'):
+    if not service('start', 'mongodb'):
         return False
 
-    while (service('mongodb', 'status') and
+    while (service('status', 'mongodb') and
            not port_check(my_hostname, my_port) and
            current_try < max_tries):
         juju_log(
@@ -845,14 +664,14 @@ def restart_mongod(wait_for=default_wait_for, max_tries=default_max_tries):
         current_try += 1
 
     return(
-        (service('mongodb', 'status') == port_check(my_hostname, my_port))
+        (service('status', 'mongodb') == port_check(my_hostname, my_port))
          is True)
 
 
 def backup_cronjob(disable=False):
     """Generate the cronjob to backup with mongodbump."""
     juju_log('Setting up cronjob')
-    config_data = config_get()
+    config_data = config()
     backupdir = config_data['backup_directory']
     bind_ip = config_data['bind_ip']
     cron_file = '/etc/cron.d/mongodb'
@@ -912,7 +731,7 @@ def install_hook():
 def config_changed():
     juju_log("Entering config_changed")
     print "Entering config_changed"
-    config_data = config_get()
+    config_data = config()
     print "config_data: ", config_data
     mongodb_config = open(default_mongodb_config).read()
 
@@ -1054,7 +873,7 @@ def start_hook():
 def stop_hook():
     juju_log("stop_hook")
     try:
-        retVal = service('mongodb', 'stop')
+        retVal = service('stop', 'mongodb')
         os.remove('/var/lib/mongodb/mongod.lock')
         #FIXME Need to check if this is still needed
     except Exception, e:
@@ -1068,14 +887,14 @@ def stop_hook():
 def database_relation_joined():
     juju_log("database_relation_joined")
     my_hostname = unit_get('public-address')
-    my_port = config_get('port')
-    my_replset = config_get('replicaset')
+    my_port = config('port')
+    my_replset = config('replicaset')
     juju_log("my_hostname: %s" % my_hostname)
     juju_log("my_port: %s" % my_port)
     juju_log("my_replset: %s" % my_replset)
     return(relation_set(
         {
-            'hostname': my_hostname,
+            'hostnme': my_hostname,
             'port': my_port,
             'replset': my_replset,
             'type': 'database',
@@ -1085,31 +904,35 @@ def database_relation_joined():
 def replica_set_relation_joined():
     juju_log("replica_set_relation_joined")
     my_hostname = unit_get('public-address')
-    my_port = config_get('port')
-    my_replset = config_get('replicaset')
+    my_port = config('port')
+    my_replset = config('replicaset')
     my_install_order = os.environ['JUJU_UNIT_NAME'].split('/')[1]
     juju_log("my_hostname: %s" % my_hostname)
     juju_log("my_port: %s" % my_port)
     juju_log("my_replset: %s" % my_replset)
     juju_log("my_install_order: %s" % my_install_order)
-    return(enable_replset(my_replset) ==
-    restart_mongod() ==
-    relation_set(
-        {
-            'hostname': my_hostname,
-            'port': my_port,
-            'replset': my_replset,
-            'install-order': my_install_order,
-            'type': 'replset',
-        }))
+    enabled = enable_replset(my_replset)
+    restarted = restart_mongod()
+
+    relation_set(None, {
+        'hostname': my_hostname,
+        'port': my_port,
+        'replset': my_replset,
+        'install-order': my_install_order,
+        'type': 'replset',
+        })
+
+    if enabled and restarted:
+        return True
+    return False
 
 
 def replica_set_relation_changed():
     juju_log("replica_set_relation_changed")
     my_hostname = unit_get('public-address')
-    my_port = config_get('port')
+    my_port = config('port')
     my_install_order = os.environ['JUJU_UNIT_NAME'].split('/')[1]
-    my_replicaset_master = config_get('replicaset_master')
+    my_replicaset_master = config('replicaset_master')
 
     # If we are joining an existing replicaset cluster, just join and leave.
     if my_replicaset_master != "auto":
@@ -1121,11 +944,11 @@ def replica_set_relation_changed():
     master_install_order = my_install_order
 
     # Check the nodes in the relation to find the master
-    for member in relation_list():
-        juju_log("replica_set_relation_changed: member: %s" % member)
-        hostname = relation_get('hostname', member)
-        port = relation_get('port', member)
-        install_order = relation_get('install-order', member)
+    for member in relations_of_type('replica-set'):
+        juju_log("replica_set_relation_changed: member: %s" % member['__unit__'])
+        hostname = relation_get('hostname', member['__unit__'])
+        port = relation_get('port', member['__unit__'])
+        install_order = relation_get('install-order', member['__unit__'])
         juju_log("replica_set_relation_changed: install_order: %s" % install_order)
         if install_order is None:
             juju_log("replica_set_relation_changed: install_order is None.  relation is not ready")
@@ -1139,9 +962,9 @@ def replica_set_relation_changed():
     init_replset("%s:%s" % (master_hostname, master_port))
 
     # Add the rest of the nodes to the replset
-    for member in relation_list():
-        hostname = relation_get('hostname', member)
-        port = relation_get('port', member)
+    for member in relations_of_type('replica-set'):
+        hostname = relation_get('hostname', member['__unit__'])
+        port = relation_get('port', member['__unit__'])
         if master_hostname != hostname:
             if hostname == my_hostname:
                 subprocess.call(['mongo',
@@ -1156,13 +979,14 @@ def replica_set_relation_changed():
         join_replset("%s:%s" % (master_hostname, master_port),
             "%s:%s" % (my_hostname, my_port))
 
+    # should this always return true?
     return(True)
 
 
 def configsvr_relation_joined():
     juju_log("configsvr_relation_joined")
     my_hostname = unit_get('public-address')
-    my_port = config_get('config_server_port')
+    my_port = config('config_server_port')
     my_install_order = os.environ['JUJU_UNIT_NAME'].split('/')[1]
     return(relation_set(
         {
@@ -1175,7 +999,7 @@ def configsvr_relation_joined():
 
 def configsvr_relation_changed():
     juju_log("configsvr_relation_changed")
-    config_data = config_get()
+    config_data = config()
     my_port = config_data['config_server_port']
     disable_configsvr(my_port)
     retVal = enable_configsvr(config_data)
@@ -1186,7 +1010,7 @@ def configsvr_relation_changed():
 def mongos_relation_joined():
     juju_log("mongos_relation_joined")
     my_hostname = unit_get('public-address')
-    my_port = config_get('mongos_port')
+    my_port = config('mongos_port')
     my_install_order = os.environ['JUJU_UNIT_NAME'].split('/')[1]
     return(relation_set(
         {
@@ -1199,9 +1023,9 @@ def mongos_relation_joined():
 
 def mongos_relation_changed():
     juju_log("mongos_relation_changed")
-    config_data = config_get()
+    config_data = config()
     retVal = False
-    for member in relation_list():
+    for member in relation_for_id():
         hostname = relation_get('hostname', member)
         port = relation_get('port', member)
         rel_type = relation_get('type', member)
@@ -1226,7 +1050,7 @@ def mongos_relation_changed():
             if mongos_ready():
                 mongos_host = "%s:%s" % (
                     unit_get('public-address'),
-                    config_get('mongos_port'))
+                    config('mongos_port'))
                 shard_command1 = "sh.addShard(\"%s:%s\")" % (hostname, port)
                 retVal1 = mongo_client(mongos_host, shard_command1)
                 replicaset = relation_get('replset', member)
@@ -1244,7 +1068,7 @@ def mongos_relation_changed():
 
 def mongos_relation_broken():
 #    config_servers = load_config_servers(default_mongos_list)
-#    for member in relation_list():
+#    for member in relation_for_id():
 #        hostname = relation_get('hostname', member)
 #        port = relation_get('port', member)
 #        if '%s:%s' % (hostname, port) in config_servers:
@@ -1277,7 +1101,7 @@ def run(command, exit_on_error=True):
 #
 #------------------------------
 def volume_get_volid_from_volume_map():
-    config_data = config_get()
+    config_data = config()
     volume_map = {}
     try:
         volume_map = yaml.load(config_data['volume-map'].strip())
@@ -1316,7 +1140,7 @@ def volume_mount_point_from_volid(volid):
 # @returns  volid
 #           None    config state is invalid - we should not serve
 def volume_get_volume_id():
-    config_data = config_get()
+    config_data = config()
     ephemeral_storage = config_data['volume-ephemeral-storage']
     volid = volume_get_volid_from_volume_map()
     juju_unit_name = os.environ['JUJU_UNIT_NAME']
@@ -1367,7 +1191,7 @@ def volume_get_all_mounted():
 #     - manipulate /var/lib/mongodb/VERSION/CLUSTER symlink
 #------------------------------------------------------------------------------
 def config_changed_volume_apply():
-    config_data = config_get()
+    config_data = config()
     data_directory_path = config_data["dbpath"]
     assert(data_directory_path)
     volid = volume_get_volume_id()
