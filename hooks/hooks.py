@@ -896,7 +896,7 @@ def database_relation_joined():
     juju_log("my_hostname: %s" % my_hostname)
     juju_log("my_port: %s" % my_port)
     juju_log("my_replset: %s" % my_replset)
-    return(relation_set(
+    return(relation_set(None,
         {
             'hostnme': my_hostname,
             'port': my_port,
