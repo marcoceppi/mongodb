@@ -916,8 +916,8 @@ def replica_set_relation_joined():
     juju_log("my_port: %s" % my_port)
     juju_log("my_replset: %s" % my_replset)
     juju_log("my_install_order: %s" % my_install_order)
-    enabled = enable_replset(my_replset)
-    restarted = restart_mongod()
+    enable_replset(my_replset)
+    restart_mongod()
 
     relation_set(None, {
         'hostname': my_hostname,
@@ -927,9 +927,6 @@ def replica_set_relation_joined():
         'type': 'replset',
         })
 
-    if enabled and restarted:
-        return True
-    return False
 
 @hooks.hook('replicaset-relation-changed')
 def replica_set_relation_changed():
@@ -950,18 +947,20 @@ def replica_set_relation_changed():
 
     # Check the nodes in the relation to find the master
     for member in relations_of_type('replica-set'):
-        juju_log("replica_set_relation_changed: member: %s" % member['__unit__'])
-        hostname = relation_get('hostname', member['__unit__'])
-        port = relation_get('port', member['__unit__'])
-        install_order = relation_get('install-order', member['__unit__'])
-        juju_log("replica_set_relation_changed: install_order: %s" % install_order)
-        if install_order is None:
-            juju_log("replica_set_relation_changed: install_order is None.  relation is not ready")
+        member = member['__unit__']
+        juju_log("replica_set_relation_changed: member: %s" % member)
+        hostname = relation_get('hostname', member)
+        port = relation_get('port', member)
+        inst_ordr = relation_get('install-order', member)
+        juju_log("replica_set_relation_changed: install_order: %s" % inst_ordr)
+        if inst_ordr is None:
+            juju_log("replica_set_relation_changed: install_order is None."
+                     "  relation is not ready")
             break
-        if int(install_order) < int(master_install_order):
+        if int(inst_ordr) < int(master_install_order):
             master_hostname = hostname
             master_port = port
-            master_install_order = install_order
+            master_install_order = inst_ordr
 
     # Initiate the replset
     init_replset("%s:%s" % (master_hostname, master_port))
@@ -972,17 +971,16 @@ def replica_set_relation_changed():
         port = relation_get('port', member['__unit__'])
         if master_hostname != hostname:
             if hostname == my_hostname:
-                subprocess.call(['mongo',
-                    '--eval',
-                    "rs.add(\"%s\")" % hostname])
+                subprocess.call(['mongo', '--eval',
+                                 "rs.add(\"%s\")" % hostname])
             else:
                 join_replset("%s:%s" % (master_hostname, master_port),
-                    "%s:%s" % (hostname, port))
+                             "%s:%s" % (hostname, port))
 
     # Add this node to the replset ( if needed )
     if master_hostname != my_hostname:
         join_replset("%s:%s" % (master_hostname, master_port),
-            "%s:%s" % (my_hostname, my_port))
+                     "%s:%s" % (my_hostname, my_port))
 
     # should this always return true?
     return(True)
@@ -1009,7 +1007,6 @@ def configsvr_relation_changed():
     config_data = config()
     my_port = config_data['config_server_port']
     disable_configsvr(my_port)
-    
 
 
 @hooks.hook('mongos-cfg-relation-joined')
@@ -1020,13 +1017,12 @@ def mongos_relation_joined():
     my_port = config('mongos_port')
     my_install_order = os.environ['JUJU_UNIT_NAME'].split('/')[1]
     relation_set(None,
-                        {
-                            'hostname': my_hostname,
-                            'port': my_port,
-                            'install-order': my_install_order,
-                            'type': 'mongos'
-                        })
-    
+                 {
+                     'hostname': my_hostname,
+                     'port': my_port,
+                     'install-order': my_install_order,
+                     'type': 'mongos'
+                 })
 
 
 @hooks.hook('mongos-cfg-relation-changed')
@@ -1086,7 +1082,6 @@ def mongos_relation_broken():
             config_servers.remove('%s:%s' % (hostname, port))
 
     update_file(default_mongos_list, '\n'.join(config_servers))
-
 
 
 def run(command, exit_on_error=True):
@@ -1192,6 +1187,7 @@ def volume_get_all_mounted():
         return None
     return output
 
+
 #------------------------------------------------------------------------------
 # Core logic for permanent storage changes:
 # NOTE the only 2 "True" return points:
@@ -1289,7 +1285,7 @@ def config_changed_volume_apply():
 # Write mongodb-server logrotate configuration
 #------------------------------------------------------------------------------
 def write_logrotate_config(config_data,
-                           conf_file = '/etc/logrotate.d/mongodb-server'):
+                           conf_file='/etc/logrotate.d/mongodb-server'):
 
     juju_log('Writing {}.'.format(conf_file))
     contents = dedent("""
