@@ -6,7 +6,6 @@ Created on Aug 1, 2012
 '''
 
 import commands
-import json
 import os
 import re
 import signal
@@ -15,7 +14,6 @@ import subprocess
 import sys
 import time
 import yaml
-import argparse
 
 from os import chmod
 from os import remove
@@ -35,10 +33,10 @@ from charmhelpers.core.hookenv import (
     unit_get,
     relation_get,
     relation_set,
-    relations_for_id,
     relations_of_type,
     open_port,
     close_port,
+    Hooks,
 )
 
 from charmhelpers.core.hookenv import log as juju_log
@@ -47,6 +45,7 @@ from charmhelpers.core.host import (
     service,
 )
 
+hooks = Hooks()
 
 ###############################################################################
 # Global variables
@@ -54,8 +53,8 @@ from charmhelpers.core.host import (
 default_mongodb_config = "/etc/mongodb.conf"
 default_mongodb_init_config = "/etc/init/mongodb.conf"
 default_mongos_list = "/etc/mongos.list"
-default_wait_for = 20
-default_max_tries = 20
+default_wait_for = 10
+default_max_tries = 5
 
 ###############################################################################
 # Supporting functions
@@ -299,7 +298,7 @@ def mongodb_conf(config_data=None):
         config.append("")
 
     # arbiter
-    if config_data['arbiter'] != "disabled" and\
+    if config_data['arbiter'] != "disabled" and \
     config_data['arbiter'] != "enabled":
         config.append("arbiter = %s" % config_data['arbiter'])
         config.append("")
@@ -720,6 +719,7 @@ PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 ###############################################################################
 # Hook functions
 ###############################################################################
+@hooks.hook('install')
 def install_hook():
     juju_log("Installing mongodb")
     add_source(config('source'), config('key'))
@@ -728,6 +728,7 @@ def install_hook():
     return True
 
 
+@hooks.hook('config-changed')
 def config_changed():
     juju_log("Entering config_changed")
     print "Entering config_changed"
@@ -853,7 +854,7 @@ def config_changed():
         juju_log("config_changed: Exceptions: %s" % str(e))
 
     if mongos_pid is not None:
-        mongos_port = re.search('--port (\w+)', mongos_cmd_line).group(2)
+        mongos_port = re.search('--port (\w+)', mongos_cmd_line).group(1)
         disable_mongos(mongos_port)
         enable_mongos(config_data['mongos_port'])
     else:
@@ -863,6 +864,7 @@ def config_changed():
     return(True)
 
 
+@hooks.hook('start')
 def start_hook():
     juju_log("start_hook")
     retVal = restart_mongod()
@@ -870,6 +872,7 @@ def start_hook():
     return(retVal)
 
 
+@hooks.hook('stop')
 def stop_hook():
     juju_log("stop_hook")
     try:
@@ -884,6 +887,7 @@ def stop_hook():
         return(retVal)
 
 
+@hooks.hook('database-relation-joined')
 def database_relation_joined():
     juju_log("database_relation_joined")
     my_hostname = unit_get('public-address')
@@ -892,7 +896,7 @@ def database_relation_joined():
     juju_log("my_hostname: %s" % my_hostname)
     juju_log("my_port: %s" % my_port)
     juju_log("my_replset: %s" % my_replset)
-    return(relation_set(
+    return(relation_set(None,
         {
             'hostnme': my_hostname,
             'port': my_port,
@@ -901,6 +905,7 @@ def database_relation_joined():
         }))
 
 
+@hooks.hook('replicaset-relation-joined')
 def replica_set_relation_joined():
     juju_log("replica_set_relation_joined")
     my_hostname = unit_get('public-address')
@@ -911,8 +916,8 @@ def replica_set_relation_joined():
     juju_log("my_port: %s" % my_port)
     juju_log("my_replset: %s" % my_replset)
     juju_log("my_install_order: %s" % my_install_order)
-    enabled = enable_replset(my_replset)
-    restarted = restart_mongod()
+    enable_replset(my_replset)
+    restart_mongod()
 
     relation_set(None, {
         'hostname': my_hostname,
@@ -922,11 +927,8 @@ def replica_set_relation_joined():
         'type': 'replset',
         })
 
-    if enabled and restarted:
-        return True
-    return False
 
-
+@hooks.hook('replicaset-relation-changed')
 def replica_set_relation_changed():
     juju_log("replica_set_relation_changed")
     my_hostname = unit_get('public-address')
@@ -945,18 +947,20 @@ def replica_set_relation_changed():
 
     # Check the nodes in the relation to find the master
     for member in relations_of_type('replica-set'):
-        juju_log("replica_set_relation_changed: member: %s" % member['__unit__'])
-        hostname = relation_get('hostname', member['__unit__'])
-        port = relation_get('port', member['__unit__'])
-        install_order = relation_get('install-order', member['__unit__'])
-        juju_log("replica_set_relation_changed: install_order: %s" % install_order)
-        if install_order is None:
-            juju_log("replica_set_relation_changed: install_order is None.  relation is not ready")
+        member = member['__unit__']
+        juju_log("replica_set_relation_changed: member: %s" % member)
+        hostname = relation_get('hostname', member)
+        port = relation_get('port', member)
+        inst_ordr = relation_get('install-order', member)
+        juju_log("replica_set_relation_changed: install_order: %s" % inst_ordr)
+        if inst_ordr is None:
+            juju_log("replica_set_relation_changed: install_order is None."
+                     "  relation is not ready")
             break
-        if int(install_order) < int(master_install_order):
+        if int(inst_ordr) < int(master_install_order):
             master_hostname = hostname
             master_port = port
-            master_install_order = install_order
+            master_install_order = inst_ordr
 
     # Initiate the replset
     init_replset("%s:%s" % (master_hostname, master_port))
@@ -967,68 +971,70 @@ def replica_set_relation_changed():
         port = relation_get('port', member['__unit__'])
         if master_hostname != hostname:
             if hostname == my_hostname:
-                subprocess.call(['mongo',
-                    '--eval',
-                    "rs.add(\"%s\")" % hostname])
+                subprocess.call(['mongo', '--eval',
+                                 "rs.add(\"%s\")" % hostname])
             else:
                 join_replset("%s:%s" % (master_hostname, master_port),
-                    "%s:%s" % (hostname, port))
+                             "%s:%s" % (hostname, port))
 
     # Add this node to the replset ( if needed )
     if master_hostname != my_hostname:
         join_replset("%s:%s" % (master_hostname, master_port),
-            "%s:%s" % (my_hostname, my_port))
+                     "%s:%s" % (my_hostname, my_port))
 
     # should this always return true?
     return(True)
 
 
+@hooks.hook('configsvr-relation-joined')
 def configsvr_relation_joined():
     juju_log("configsvr_relation_joined")
     my_hostname = unit_get('public-address')
     my_port = config('config_server_port')
     my_install_order = os.environ['JUJU_UNIT_NAME'].split('/')[1]
-    return(relation_set(
-        {
-            'hostname': my_hostname,
-            'port': my_port,
-            'install-order': my_install_order,
-            'type': 'configsvr',
-        }))
+    return(relation_set(None,
+                        {
+                            'hostname': my_hostname,
+                            'port': my_port,
+                            'install-order': my_install_order,
+                            'type': 'configsvr',
+                        }))
 
 
+@hooks.hook('configsvr-relation-changed')
 def configsvr_relation_changed():
     juju_log("configsvr_relation_changed")
     config_data = config()
     my_port = config_data['config_server_port']
     disable_configsvr(my_port)
-    retVal = enable_configsvr(config_data)
-    juju_log("configsvr_relation_changed returns: %s" % retVal)
-    return(retVal)
 
 
+@hooks.hook('mongos-cfg-relation-joined')
+@hooks.hook('mongos-relation-joined')
 def mongos_relation_joined():
     juju_log("mongos_relation_joined")
     my_hostname = unit_get('public-address')
     my_port = config('mongos_port')
     my_install_order = os.environ['JUJU_UNIT_NAME'].split('/')[1]
-    return(relation_set(
-        {
-            'hostname': my_hostname,
-            'port': my_port,
-            'install-order': my_install_order,
-            'type': 'mongos'
-        }))
+    relation_set(None,
+                 {
+                     'hostname': my_hostname,
+                     'port': my_port,
+                     'install-order': my_install_order,
+                     'type': 'mongos'
+                 })
 
 
+@hooks.hook('mongos-cfg-relation-changed')
+@hooks.hook('mongos-relation-changed')
 def mongos_relation_changed():
     juju_log("mongos_relation_changed")
     config_data = config()
     retVal = False
-    for member in relation_for_id():
-        hostname = relation_get('hostname', member)
-        port = relation_get('port', member)
-        rel_type = relation_get('type', member)
+    for member in relations_of_type('mongos-cfg'):
+        hostname = relation_get('hostname', member['__unit__'])
+        port = relation_get('port', member['__unit__'])
+        rel_type = relation_get('type', member['__unit__'])
         if hostname is None or port is None or rel_type is None:
             juju_log("mongos_relation_changed: relation data not ready.")
             break
@@ -1052,29 +1058,30 @@ def mongos_relation_changed():
                     unit_get('public-address'),
                     config('mongos_port'))
                 shard_command1 = "sh.addShard(\"%s:%s\")" % (hostname, port)
-                retVal1 = mongo_client(mongos_host, shard_command1)
+                mongo_client(mongos_host, shard_command1)
                 replicaset = relation_get('replset', member)
-                shard_command2 = "sh.addShard(\"%s/%s:%s\")" % \
+                shard_command2 = "sh.addShard(\"%s/%s:%s\")" %  \
                 (replicaset, hostname, port)
-                retVal2 = mongo_client(mongos_host, shard_command2)
-                retVal = retVal1 is True and retVal2 is True
+                mongo_client(mongos_host, shard_command2)
+
         else:
             juju_log("mongos_relation_change: undefined rel_type: %s" %
-            rel_type)
+                     rel_type)
             return(False)
     juju_log("mongos_relation_changed returns: %s" % retVal)
     return(retVal)
 
 
+@hooks.hook('mongos-relation-broken')
 def mongos_relation_broken():
-#    config_servers = load_config_servers(default_mongos_list)
-#    for member in relation_for_id():
-#        hostname = relation_get('hostname', member)
-#        port = relation_get('port', member)
-#        if '%s:%s' % (hostname, port) in config_servers:
-#            config_servers.remove('%s:%s' % (hostname, port))
-#    return(update_file(default_mongos_list, '\n'.join(config_servers)))
-    return(True)
+    config_servers = load_config_servers(default_mongos_list)
+    for member in relations_of_type('mongos'):
+        hostname = relation_get('hostname', member)
+        port = relation_get('port', member)
+        if '%s:%s' % (hostname, port) in config_servers:
+            config_servers.remove('%s:%s' % (hostname, port))
+
+    update_file(default_mongos_list, '\n'.join(config_servers))
 
 
 def run(command, exit_on_error=True):
@@ -1180,6 +1187,7 @@ def volume_get_all_mounted():
         return None
     return output
 
+
 #------------------------------------------------------------------------------
 # Core logic for permanent storage changes:
 # NOTE the only 2 "True" return points:
@@ -1277,7 +1285,7 @@ def config_changed_volume_apply():
 # Write mongodb-server logrotate configuration
 #------------------------------------------------------------------------------
 def write_logrotate_config(config_data,
-                           conf_file = '/etc/logrotate.d/mongodb-server'):
+                           conf_file='/etc/logrotate.d/mongodb-server'):
 
     juju_log('Writing {}.'.format(conf_file))
     contents = dedent("""
@@ -1304,51 +1312,6 @@ def write_logrotate_config(config_data,
 ###############################################################################
 # Main section
 ###############################################################################
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-H', '--hook_name', dest='hook_name',
-                        help='hook to call')
-    args = parser.parse_args()
-    if args.hook_name is not None:
-        hook_name = args.hook_name
-    else:
-        hook_name = os.path.basename(sys.argv[0])
-
-    if hook_name == "install":
-        retVal = install_hook()
-    elif hook_name == "config-changed":
-        retVal = config_changed()
-    elif hook_name == "start":
-        retVal = start_hook()
-    elif hook_name == "stop":
-        retVal = stop_hook()
-    elif hook_name == "database-relation-joined":
-        retVal = database_relation_joined()
-    elif hook_name == "replica-set-relation-joined":
-        retVal = replica_set_relation_joined()
-    elif hook_name == "replica-set-relation-changed":
-        retVal = replica_set_relation_changed()
-    elif hook_name == "configsvr-relation-joined":
-        retVal = configsvr_relation_joined()
-    elif hook_name == "configsvr-relation-changed":
-        retVal = configsvr_relation_changed()
-    elif hook_name == "mongos-cfg-relation-joined":
-        retVal = mongos_relation_joined()
-    elif hook_name == "mongos-cfg-relation-changed":
-        retVal = mongos_relation_changed()
-    elif hook_name == "mongos-cfg-relation-broken":
-        retVal = mongos_relation_broken()
-    elif hook_name == "mongos-relation-joined":
-        retVal = mongos_relation_joined()
-    elif hook_name == "mongos-relation-changed":
-        retVal = mongos_relation_changed()
-    elif hook_name == "mongos-relation-broken":
-        retVal = mongos_relation_broken()
-    else:
-        print "Unknown hook"
-        retVal = False
-
-    if retVal is True:
-        sys.exit(0)
-    else:
-        sys.exit(1)
+if __name__ == "__main__":
+    # execute a hook based on the name the program is called by
+    hooks.execute(sys.argv)
